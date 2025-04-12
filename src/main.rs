@@ -1,4 +1,5 @@
 use config::VideoSyncConfig;
+use logging::init_logging;
 use mqtt_handler::MqttHandler;
 
 mod config;
@@ -9,6 +10,8 @@ mod mqtt_handler;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    init_logging();
+
     let config = VideoSyncConfig::from_file_or_default("config.yaml")?;
 
     let mut handler = MqttHandler::new(config).await?;

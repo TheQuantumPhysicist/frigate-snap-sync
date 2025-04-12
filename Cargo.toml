@@ -1,13 +1,15 @@
-[workspace]
-members = [
-    "randomness",
-    "test-utils",
-]
 
 [package]
 name = "frigate-video-sync"
 version = "0.1.0"
 edition = "2024"
+
+[workspace]
+members = [
+    "logging",
+    "randomness",
+    "test-utils",
+]
 
 [dependencies]
 anyhow = "1.0"
@@ -17,9 +19,11 @@ serde_yml = "0.0"
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "2.0"
 tokio = { version = "1.44", features = ["full"] }
-tracing = "0.1"
 tap = "1.0"
 bytes = "1.10"
+tracing = { workspace = true }
+
+logging = { workspace = true }
 
 [dev-dependencies]
 randomness = { workspace = true }
@@ -28,11 +32,21 @@ test-utils = { workspace = true }
 
 [workspace.package]
 edition = "2024"
+rust-version = "1.85"
+version = "0.1.0"
+license = "MIT"
 
 [workspace.dependencies]
 rand_chacha = "0.9"
 rstest = "0.25"
+tracing-subscriber = "0.3"
+tracing = "0.1"
+log = "0.4"
+thiserror = "2.0"
+tokio = { version = "1.44", default-features = false }
 
+
+logging = { path = "logging" }
 randomness = { path = "randomness" }
 test-utils = { path = "test-utils" }
 

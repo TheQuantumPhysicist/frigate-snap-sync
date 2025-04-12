@@ -90,6 +90,7 @@ async fn launch_eventloop(
                             &publish.topic,
                             &publish.payload,
                         ) {
+                            tracing::debug!("Found relevant data from topic: {}", publish.topic);
                             data_sender.send(data).expect("Sending data message failed");
                         }
                         let payload_str = String::from_utf8(publish.payload.to_vec())
