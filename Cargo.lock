@@ -306,6 +306,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "frigate-api-caller"
+version = "0.1.0"
+
+[[package]]
 name = "frigate-video-sync"
 version = "0.1.0"
 dependencies = [
