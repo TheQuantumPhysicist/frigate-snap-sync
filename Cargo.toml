@@ -1,0 +1,44 @@
+[workspace]
+members = [
+    "randomness",
+    "test-utils",
+]
+
+[package]
+name = "frigate-video-sync"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0"
+image = "0.25"
+rumqttc = "0.24.0"
+serde_yml = "0.0"
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "2.0"
+tokio = { version = "1.44", features = ["full"] }
+tracing = "0.1"
+tap = "1.0"
+bytes = "1.10"
+
+[dev-dependencies]
+randomness = { workspace = true }
+rstest = { workspace = true }
+test-utils = { workspace = true }
+
+[workspace.package]
+edition = "2024"
+
+[workspace.dependencies]
+rand_chacha = "0.9"
+rstest = "0.25"
+
+randomness = { path = "randomness" }
+test-utils = { path = "test-utils" }
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+module_name_repetitions = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
