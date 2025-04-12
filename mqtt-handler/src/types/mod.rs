@@ -3,13 +3,13 @@ mod snapshot;
 mod snapshots_state;
 mod utils;
 
-use crate::config::VideoSyncConfig;
+use crate::config::MqttHandlerConfig;
 use recordings_state::RecordingsState;
 use snapshot::Snapshot;
 use snapshots_state::SnapshotsState;
 
 #[must_use]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum CapturedPayloads {
     CameraRecordingsState(RecordingsState),
     CameraSnapshotsState(SnapshotsState),
@@ -18,12 +18,12 @@ pub enum CapturedPayloads {
 
 impl CapturedPayloads {
     pub fn from_publish(
-        config: &VideoSyncConfig,
+        config: &MqttHandlerConfig,
         topic: &str,
         payload: &bytes::Bytes,
     ) -> Option<Self> {
         let topic_parts = topic.split('/').collect::<Vec<_>>();
-        if !topic_parts.is_empty() && topic_parts[0] == config.mqtt_frigate_topic_prefix() {
+        if !topic_parts.is_empty() && topic_parts[0] == config.mqtt_frigate_topic_prefix {
             // Do nothing
         } else {
             return None;
@@ -46,16 +46,23 @@ impl CapturedPayloads {
         None
     }
 
-    fn into_recordings_state(self) -> Option<RecordingsState> {
+    pub fn into_recordings_state(self) -> Option<RecordingsState> {
         match self {
             CapturedPayloads::CameraRecordingsState(r) => Some(r),
             _ => None,
         }
     }
 
-    fn into_snapshots_state(self) -> Option<SnapshotsState> {
+    pub fn into_snapshots_state(self) -> Option<SnapshotsState> {
         match self {
             CapturedPayloads::CameraSnapshotsState(r) => Some(r),
+            _ => None,
+        }
+    }
+
+    pub fn into_snapshot(self) -> Option<Snapshot> {
+        match self {
+            CapturedPayloads::Snapshot(s) => Some(s),
             _ => None,
         }
     }

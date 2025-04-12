@@ -3,7 +3,7 @@ use tap::TapOptional;
 use super::utils::on_off_from_bytes;
 
 #[must_use]
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct SnapshotsState {
     camera_label: String,
     state: bool,
@@ -49,15 +49,15 @@ mod tests {
         #[case] payload: Vec<u8>,
         #[case] expected_state: Option<bool>,
     ) {
-        use crate::{config::VideoSyncConfig, mqtt_handler::types::CapturedPayloads};
+        use crate::{config::MqttHandlerConfig, types::CapturedPayloads};
 
         let mut rng = make_seedable_rng(random_seed);
 
         let mqtt_topic_prefix = make_random_alphanumeric_string(&mut rng, 20);
 
-        let mut config = VideoSyncConfig::default();
+        let mut config = MqttHandlerConfig::default();
 
-        config.set_mqtt_frigate_topic_prefix(Some(mqtt_topic_prefix.clone()));
+        config.mqtt_frigate_topic_prefix = mqtt_topic_prefix.clone();
 
         {
             let camera_name = make_random_alphanumeric_string(&mut rng, 20);

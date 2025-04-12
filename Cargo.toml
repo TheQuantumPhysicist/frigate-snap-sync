@@ -7,23 +7,20 @@ edition = "2024"
 [workspace]
 members = [
     "logging",
+    "mqtt-handler",
     "randomness",
     "test-utils",
 ]
 
 [dependencies]
-anyhow = "1.0"
-image = "0.25"
-rumqttc = "0.24.0"
-serde_yml = "0.0"
-serde = { version = "1.0", features = ["derive"] }
-thiserror = "2.0"
-tokio = { version = "1.44", features = ["full"] }
-tap = "1.0"
-bytes = "1.10"
-tracing = { workspace = true }
+anyhow = { workspace = true }
+serde_yml = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
 
 logging = { workspace = true }
+mqtt-handler = { workspace = true }
 
 [dev-dependencies]
 randomness = { workspace = true }
@@ -37,16 +34,24 @@ version = "0.1.0"
 license = "MIT"
 
 [workspace.dependencies]
-rand_chacha = "0.9"
-rstest = "0.25"
-tracing-subscriber = "0.3"
-tracing = "0.1"
+anyhow = "1.0"
+bytes = "1.10"
+image = "0.25"
 log = "0.4"
+rand_chacha = "0.9"
+serde = "1.0"
+serde_yml = "0.0"
+tap = "1.0"
 thiserror = "2.0"
 tokio = { version = "1.44", default-features = false }
+tracing-subscriber = "0.3"
+tracing = "0.1"
+rstest = "0.25"
+rumqttc = "0.24.0"
 
 
 logging = { path = "logging" }
+mqtt-handler = { path = "mqtt-handler" }
 randomness = { path = "randomness" }
 test-utils = { path = "test-utils" }
 

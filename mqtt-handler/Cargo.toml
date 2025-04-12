@@ -1,0 +1,25 @@
+[package]
+name = "mqtt-handler"
+edition.workspace = true
+rust-version.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow = { workspace = true}
+
+image = { workspace = true }
+rumqttc = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+tap = { workspace = true }
+bytes = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+randomness = { workspace = true }
+rstest = { workspace = true }
+test-utils = { workspace = true }
+
+[lints]
+workspace = true

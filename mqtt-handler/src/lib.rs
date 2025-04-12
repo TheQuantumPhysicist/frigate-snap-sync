@@ -1,9 +1,9 @@
+use config::MqttHandlerConfig;
 use rumqttc::{AsyncClient, Event, MqttOptions, Packet, QoS};
 use tokio::sync::{mpsc::UnboundedReceiver, oneshot};
 use types::CapturedPayloads;
 
-use crate::config::VideoSyncConfig;
-
+pub mod config;
 pub mod types;
 
 pub struct MqttHandler {
@@ -13,7 +13,7 @@ pub struct MqttHandler {
 }
 
 impl MqttHandler {
-    pub async fn new(config: VideoSyncConfig) -> anyhow::Result<Self> {
+    pub async fn new(config: MqttHandlerConfig) -> anyhow::Result<Self> {
         let (data_sender, data_receiver) = tokio::sync::mpsc::unbounded_channel();
         let mqtt_options = (&config).try_into()?;
         let (stop_sender, stop_receiver) = oneshot::channel();
@@ -54,7 +54,7 @@ impl MqttHandler {
 async fn launch_eventloop(
     data_sender: tokio::sync::mpsc::UnboundedSender<CapturedPayloads>,
     mqtt_options: MqttOptions,
-    config: VideoSyncConfig,
+    config: MqttHandlerConfig,
     mut stop_receiver: oneshot::Receiver<()>,
 ) {
     tracing::info!(
@@ -65,7 +65,7 @@ async fn launch_eventloop(
 
     let (client, mut eventloop) = AsyncClient::new(mqtt_options, 100);
 
-    let topic = format!("{}/#", config.mqtt_frigate_topic_prefix());
+    let topic = format!("{}/#", config.mqtt_frigate_topic_prefix);
 
     tracing::info!("Subscribing to topic: {topic}");
 
@@ -119,8 +119,11 @@ async fn launch_eventloop(
     }
 }
 
-fn set_credentials(config: &VideoSyncConfig, mqtt_options: &mut MqttOptions) -> anyhow::Result<()> {
-    match (config.mqtt_username(), config.mqtt_password()) {
+fn set_credentials(
+    config: &MqttHandlerConfig,
+    mqtt_options: &mut MqttOptions,
+) -> anyhow::Result<()> {
+    match (&config.mqtt_username, &config.mqtt_password) {
         (Some(u), Some(p)) => {
             tracing::info!("Setting username and password for mqtt connection");
             mqtt_options.set_credentials(u, p);
@@ -138,18 +141,15 @@ fn set_credentials(config: &VideoSyncConfig, mqtt_options: &mut MqttOptions) -> 
     Ok(())
 }
 
-impl TryFrom<&VideoSyncConfig> for MqttOptions {
+impl TryFrom<&MqttHandlerConfig> for MqttOptions {
     type Error = anyhow::Error;
 
-    fn try_from(config: &VideoSyncConfig) -> Result<Self, Self::Error> {
-        let mut mqtt_options = MqttOptions::new(
-            config.mqtt_client_id(),
-            config.mqtt_host(),
-            config.mqtt_port(),
-        );
+    fn try_from(config: &MqttHandlerConfig) -> Result<Self, Self::Error> {
+        let mut mqtt_options =
+            MqttOptions::new(&config.mqtt_client_id, &config.mqtt_host, config.mqtt_port);
         mqtt_options.set_max_packet_size(1 << 24, 1 << 24);
         mqtt_options.set_keep_alive(std::time::Duration::from_secs(
-            config.mqtt_keep_alive_seconds(),
+            config.mqtt_keep_alive_seconds,
         ));
 
         set_credentials(config, &mut mqtt_options)?;

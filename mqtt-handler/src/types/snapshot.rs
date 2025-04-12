@@ -1,9 +1,9 @@
 #[must_use]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Snapshot {
-    snapshot_image: image::DynamicImage,
-    camera_label: String,
-    object_name: String,
+    pub snapshot_image: image::DynamicImage,
+    pub camera_label: String,
+    pub object_name: String,
 }
 
 impl Snapshot {
