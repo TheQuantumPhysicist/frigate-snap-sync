@@ -1,7 +1,7 @@
 #[must_use]
 #[derive(Debug, Clone)]
 pub struct Snapshot {
-    pub snapshot_image: image::DynamicImage,
+    pub image: image::DynamicImage,
     pub camera_label: String,
     pub object_name: String,
 }
@@ -25,7 +25,7 @@ impl Snapshot {
                     }
                 };
             Some(Self {
-                snapshot_image,
+                image: snapshot_image,
                 camera_label,
                 object_name,
             })

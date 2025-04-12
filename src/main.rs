@@ -26,7 +26,7 @@ async fn main() -> anyhow::Result<()> {
 
     let mqtt_config = MqttHandlerConfig::from(&config);
 
-    let mut handler = mqtt_handler::MqttHandler::new(mqtt_config).await?;
+    let mut handler = mqtt_handler::MqttHandler::new(mqtt_config)?;
 
     handler.wait().await;
 

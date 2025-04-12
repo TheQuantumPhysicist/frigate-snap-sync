@@ -46,6 +46,7 @@ impl CapturedPayloads {
         None
     }
 
+    #[must_use]
     pub fn into_recordings_state(self) -> Option<RecordingsState> {
         match self {
             CapturedPayloads::CameraRecordingsState(r) => Some(r),
@@ -53,6 +54,7 @@ impl CapturedPayloads {
         }
     }
 
+    #[must_use]
     pub fn into_snapshots_state(self) -> Option<SnapshotsState> {
         match self {
             CapturedPayloads::CameraSnapshotsState(r) => Some(r),
@@ -60,6 +62,7 @@ impl CapturedPayloads {
         }
     }
 
+    #[must_use]
     pub fn into_snapshot(self) -> Option<Snapshot> {
         match self {
             CapturedPayloads::Snapshot(s) => Some(s),

@@ -13,7 +13,7 @@ pub struct MqttHandler {
 }
 
 impl MqttHandler {
-    pub async fn new(config: MqttHandlerConfig) -> anyhow::Result<Self> {
+    pub fn new(config: MqttHandlerConfig) -> anyhow::Result<Self> {
         let (data_sender, data_receiver) = tokio::sync::mpsc::unbounded_channel();
         let mqtt_options = (&config).try_into()?;
         let (stop_sender, stop_receiver) = oneshot::channel();
@@ -30,6 +30,7 @@ impl MqttHandler {
         })
     }
 
+    #[must_use]
     pub fn receiver(&self) -> &UnboundedReceiver<CapturedPayloads> {
         &self.data_receiver
     }
@@ -47,7 +48,7 @@ impl MqttHandler {
             .take()
             .expect("Stop called more than once")
             .send(())
-            .expect("Sending stop signal failed")
+            .expect("Sending stop signal failed");
     }
 }
 
@@ -73,7 +74,7 @@ async fn launch_eventloop(
 
     loop {
         match stop_receiver.try_recv() {
-            Ok(_) => break,
+            Ok(()) => break,
             Err(e) => match e {
                 oneshot::error::TryRecvError::Empty => (),
                 oneshot::error::TryRecvError::Closed => break,
@@ -82,7 +83,7 @@ async fn launch_eventloop(
 
         if let Ok(notification) = eventloop.poll().await {
             if let Event::Incoming(notf) = notification {
-                println!("Received = {:?}", notf);
+                println!("Received = {notf:?}");
                 match notf {
                     Packet::Publish(publish) => {
                         if let Some(data) = CapturedPayloads::from_publish(
@@ -96,21 +97,21 @@ async fn launch_eventloop(
                         let payload_str = String::from_utf8(publish.payload.to_vec())
                             .unwrap_or_else(|_e| "<Payload decode failed>".to_string());
                         println!("Topic: {}", publish.topic);
-                        println!("Payload: {payload_str}",)
+                        println!("Payload: {payload_str}");
                     }
-                    Packet::Connect(_) => (),
-                    Packet::ConnAck(_) => (),
-                    Packet::PubAck(_) => (),
-                    Packet::PubRec(_) => (),
-                    Packet::PubRel(_) => (),
-                    Packet::PubComp(_) => (),
-                    Packet::Subscribe(_) => (),
-                    Packet::SubAck(_) => (),
-                    Packet::Unsubscribe(_) => (),
-                    Packet::UnsubAck(_) => (),
-                    Packet::PingReq => (),
-                    Packet::PingResp => (),
-                    Packet::Disconnect => (),
+                    Packet::Connect(_)
+                    | Packet::ConnAck(_)
+                    | Packet::PubAck(_)
+                    | Packet::PubRec(_)
+                    | Packet::PubRel(_)
+                    | Packet::PubComp(_)
+                    | Packet::Subscribe(_)
+                    | Packet::SubAck(_)
+                    | Packet::Unsubscribe(_)
+                    | Packet::UnsubAck(_)
+                    | Packet::PingReq
+                    | Packet::PingResp
+                    | Packet::Disconnect => (),
                 }
             }
         } else {
