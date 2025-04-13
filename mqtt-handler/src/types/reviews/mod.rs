@@ -22,7 +22,7 @@ impl Reviews {
                 }
             };
 
-            let reviews_payload = match serde_json::from_str::<ReviewsPayload>(&payload_str) {
+            let payload = match serde_json::from_str::<ReviewsPayload>(&payload_str) {
                 Ok(p) => p,
                 Err(e) => {
                     tracing::error!("Parsing payload to json failed: `{e}`.");
@@ -30,9 +30,7 @@ impl Reviews {
                 }
             };
 
-            Some(Self {
-                payload: reviews_payload,
-            })
+            Some(Self { payload })
         } else {
             None
         }
