@@ -89,6 +89,12 @@ impl FrigateApi for FrigateApiClient {
         let response = request.send().await?;
         let result = response.bytes().await?;
 
+        if !is_valid_mp4(&result) {
+            return Err(anyhow::anyhow!(
+                "The file returned in `recording_clip` API call is not a valid MP4 file. Parameters: [start,end] times [{start_ts},{end_ts}]"
+            ));
+        }
+
         if result.is_empty() {
             return Ok(None);
         }
@@ -113,6 +119,11 @@ fn json_headers_map() -> reqwest::header::HeaderMap {
         "application/json".parse().expect("Parsing must work"),
     );
     headers
+}
+
+/// Basic check that the file provided is an MP4 file
+fn is_valid_mp4(data: &[u8]) -> bool {
+    data.len() > 11 && &data[4..8] == b"ftyp"
 }
 
 #[cfg(test)]
