@@ -17,7 +17,7 @@ impl Snapshot {
                 match image::load_from_memory_with_format(payload, image::ImageFormat::Jpeg) {
                     Ok(img) => img,
                     Err(e) => {
-                        tracing::warn!(
+                        tracing::error!(
                             "Failed to parse `snapshot` topic (${}) image with error: `{e}`",
                             topic_parts.join("/")
                         );

@@ -82,9 +82,9 @@ async fn launch_eventloop(
         }
 
         if let Ok(notification) = eventloop.poll().await {
-            if let Event::Incoming(notf) = notification {
-                println!("Received = {notf:?}");
-                match notf {
+            if let Event::Incoming(notification) = notification {
+                println!("Received = {notification:?}");
+                match notification {
                     Packet::Publish(publish) => {
                         if let Some(data) = CapturedPayloads::from_publish(
                             &config,
