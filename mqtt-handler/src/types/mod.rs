@@ -1,10 +1,13 @@
-mod recordings_state;
-mod snapshot;
-mod snapshots_state;
+pub mod recordings_state;
+pub mod reviews;
+pub mod snapshot;
+pub mod snapshots_state;
+
 mod utils;
 
 use crate::config::MqttHandlerConfig;
 use recordings_state::RecordingsState;
+use reviews::Reviews;
 use snapshot::Snapshot;
 use snapshots_state::SnapshotsState;
 
@@ -14,6 +17,7 @@ pub enum CapturedPayloads {
     CameraRecordingsState(RecordingsState),
     CameraSnapshotsState(SnapshotsState),
     Snapshot(Snapshot),
+    Reviews(Box<Reviews>),
 }
 
 impl CapturedPayloads {
@@ -30,15 +34,23 @@ impl CapturedPayloads {
         }
 
         if let Some(o) = SnapshotsState::from_topic_parts(&topic_parts, payload) {
+            tracing::debug!("Parsed success: SnapshotsState");
             return Some(Self::CameraSnapshotsState(o));
         }
 
         if let Some(o) = RecordingsState::from_topic_parts(&topic_parts, payload) {
+            tracing::debug!("Parsed success: RecordingsState");
             return Some(Self::CameraRecordingsState(o));
         }
 
         if let Some(o) = Snapshot::from_topic_parts(&topic_parts, payload) {
+            tracing::debug!("Parsed success: Snapshot");
             return Some(Self::Snapshot(o));
+        }
+
+        if let Some(o) = Reviews::from_topic_parts(&topic_parts, payload) {
+            tracing::debug!("Parsed success: Reviews");
+            return Some(Self::Reviews(o.into()));
         }
 
         tracing::debug!("Ignoring message with topic: {topic}");

@@ -668,6 +668,8 @@ dependencies = [
  "randomness",
  "rstest",
  "rumqttc",
+ "serde",
+ "serde_json",
  "tap",
  "test-utils",
  "thiserror 2.0.12",
