@@ -1,3 +1,4 @@
+#[must_use]
 pub fn build_client(proxy_address: Option<String>) -> reqwest::Client {
     let builder = reqwest::ClientBuilder::new();
     match proxy_address {

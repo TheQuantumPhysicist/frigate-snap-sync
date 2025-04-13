@@ -3,21 +3,21 @@
 #[must_use]
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct Review {
-    id: String,
-    camera: String,
-    start_time: f64,
-    end_time: Option<f64>,
-    has_been_reviewed: bool,
-    severity: String,
-    thumb_path: String,
-    data: Data,
+    pub id: String,
+    pub camera: String,
+    pub start_time: f64,
+    pub end_time: Option<f64>,
+    pub has_been_reviewed: bool,
+    pub severity: String,
+    pub thumb_path: String,
+    pub data: Data,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
-struct Data {
-    detections: Vec<String>,
-    objects: Vec<String>,
-    sub_labels: Vec<String>, // Assuming this is a vector of strings
-    zones: Vec<String>,
-    audio: Vec<String>,
+pub struct Data {
+    pub detections: Vec<String>,
+    pub objects: Vec<String>,
+    pub sub_labels: Vec<String>, // Assuming this is a vector of strings
+    pub zones: Vec<String>,
+    //pub audio: Vec<String>,
 }
