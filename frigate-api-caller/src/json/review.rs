@@ -19,5 +19,5 @@ pub struct Data {
     pub objects: Vec<String>,
     pub sub_labels: Vec<String>, // Assuming this is a vector of strings
     pub zones: Vec<String>,
-    //pub audio: Vec<String>,
+    pub audio: Vec<serde_json::Value>,
 }

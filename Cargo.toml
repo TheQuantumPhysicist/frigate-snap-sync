@@ -6,6 +6,7 @@ edition = "2024"
 
 [workspace]
 members = [
+    "file-sender",
     "frigate-api-caller",
     "logging",
     "mqtt-handler",
@@ -39,6 +40,7 @@ anyhow = "1.0"
 async-trait = "0.1"
 bytes = "1.10"
 image = "0.25"
+libssh2-sys = "0.3"
 log = "0.4"
 rand_chacha = "0.9"
 serde = "1.0"
@@ -52,6 +54,8 @@ tracing = "0.1"
 reqwest = "0.12"
 rstest = "0.25"
 rumqttc = "0.24.0"
+ssh2 = "0.9"
+
 
 logging = { path = "logging" }
 mqtt-handler = { path = "mqtt-handler" }

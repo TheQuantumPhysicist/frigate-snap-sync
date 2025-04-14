@@ -1,0 +1,14 @@
+[package]
+name = "file-sender"
+edition.workspace = true
+rust-version.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+libssh2-sys = { workspace = true }
+ssh2 = { workspace = true }
+thiserror = { workspace = true }
+
+[lints]
+workspace = true

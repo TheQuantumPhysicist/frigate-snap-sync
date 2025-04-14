@@ -11,11 +11,23 @@
 			"problemMatcher": [
 				"$rustc"
 			],
+			"group": "build",
+			"label": "rust: cargo test"
+		},
+		{
+			"type": "cargo",
+			"command": "build",
+			"args": [
+				"--all"
+			],
+			"problemMatcher": [
+				"$rustc"
+			],
 			"group": {
-				"kind": "test",
+				"kind": "build",
 				"isDefault": true
 			},
-			"label": "rust: cargo test"
+			"label": "rust: cargo build"
 		}
 	]
 }

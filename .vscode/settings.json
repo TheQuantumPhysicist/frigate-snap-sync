@@ -2,6 +2,7 @@
     "editor.formatOnSave": true,
     "cSpell.words": [
         "ftyp",
+        "libssh",
         "mqtt"
     ],
     "terminal.integrated.env.osx": {
