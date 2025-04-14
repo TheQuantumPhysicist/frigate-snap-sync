@@ -12,13 +12,16 @@ pub struct SftpImpl {
     #[allow(dead_code)]
     session: ssh2::Session,
     sftp: ssh2::Sftp,
+    #[allow(dead_code)]
+    destination_path: PathBuf,
 }
 
 impl SftpImpl {
-    pub fn new_with_public_key<P: AsRef<Path>>(
+    pub fn new_with_public_key(
         host: &str,
         username: &str,
-        priv_key_path: &P,
+        priv_key_path: impl AsRef<Path>,
+        destination_path: impl Into<PathBuf>,
     ) -> Result<Self, SftpError> {
         let mut session = Session::new().map_err(SftpError::SessionInitError)?;
 
@@ -38,7 +41,15 @@ impl SftpImpl {
 
         let sftp = session.sftp().map_err(SftpError::SftpChannelOpenFailed)?;
 
-        let result = SftpImpl { session, sftp };
+        let dest_dir = destination_path.into();
+        sftp.opendir(&dest_dir)
+            .map_err(|_e| SftpError::DestPathNotFound(dest_dir.clone()))?;
+
+        let result = SftpImpl {
+            session,
+            sftp,
+            destination_path: dest_dir,
+        };
         Ok(result)
     }
 
@@ -177,6 +188,8 @@ pub enum SftpError {
     OpenDestinationFileToWriteFailed(ssh2::Error),
     #[error("Could not find source file for put {0}")]
     SourceFileNotFound(PathBuf),
+    #[error("Destination path not found {0}")]
+    DestPathNotFound(PathBuf),
     #[error("Could not open source file for put {0}")]
     SourceFileOpenFailed(PathBuf, std::io::Error),
     #[error("Copy file for put failed {0}")]
@@ -201,18 +214,18 @@ fn get_all_parents_for_mkdir_p<P: AsRef<Path>>(path: P) -> Vec<PathBuf> {
 }
 
 impl StoreDestination for SftpImpl {
-    type Error = SftpError;
+    type Error = anyhow::Error;
 
     fn ls(&self, path: &Path) -> Result<Vec<PathBuf>, Self::Error> {
-        self.ls(&path)
+        self.ls(&path).map_err(Into::into)
     }
 
     fn del_file(&self, path: &Path) -> Result<(), Self::Error> {
-        self.del(&path)
+        self.del(&path).map_err(Into::into)
     }
 
     fn put(&self, from: &Path, to: &Path) -> Result<(), Self::Error> {
-        self.put(&from, &to)
+        self.put(&from, &to).map_err(Into::into)
     }
 
     fn mkdir_p(&self, path: &Path) -> Result<(), Self::Error> {
@@ -227,14 +240,14 @@ impl StoreDestination for SftpImpl {
             }
         }
 
-        self.mkdir(&path)
+        self.mkdir(&path).map_err(Into::into)
     }
 
     fn dir_exists(&self, path: &Path) -> Result<bool, Self::Error> {
-        self.dir_exists(&path)
+        self.dir_exists(&path).map_err(Into::into)
     }
 
     fn file_exists(&self, path: &Path) -> Result<bool, Self::Error> {
-        self.file_exists(&path)
+        self.file_exists(&path).map_err(Into::into)
     }
 }

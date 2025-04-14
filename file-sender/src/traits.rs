@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 pub trait StoreDestination {
-    type Error: std::error::Error;
+    type Error;
 
     fn ls(&self, path: &Path) -> Result<Vec<PathBuf>, Self::Error>;
     fn del_file(&self, path: &Path) -> Result<(), Self::Error>;

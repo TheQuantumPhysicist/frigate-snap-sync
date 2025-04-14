@@ -1,5 +1,4 @@
 use std::fs;
-use std::io;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -21,25 +20,28 @@ impl LocalStore {
 }
 
 impl StoreDestination for LocalStore {
-    type Error = io::Error;
+    type Error = anyhow::Error;
 
     fn ls(&self, path: &Path) -> Result<Vec<PathBuf>, Self::Error> {
         let full_path = self.resolve(&path);
         fs::read_dir(full_path)?
             .map(|res| res.map(|e| e.file_name().into()))
-            .collect()
+            .collect::<Result<_, std::io::Error>>()
+            .map_err(Into::into)
     }
 
     fn del_file(&self, path: &Path) -> Result<(), Self::Error> {
-        fs::remove_file(self.resolve(&path))
+        fs::remove_file(self.resolve(&path)).map_err(Into::into)
     }
 
     fn mkdir_p(&self, path: &Path) -> Result<(), Self::Error> {
-        fs::create_dir_all(self.resolve(&path))
+        fs::create_dir_all(self.resolve(&path)).map_err(Into::into)
     }
 
     fn put(&self, from: &Path, to: &Path) -> Result<(), Self::Error> {
-        fs::copy(from, self.resolve(&to)).map(|_| ())
+        fs::copy(from, self.resolve(&to))
+            .map(|_| ())
+            .map_err(Into::into)
     }
 
     fn dir_exists(&self, path: &Path) -> Result<bool, Self::Error> {

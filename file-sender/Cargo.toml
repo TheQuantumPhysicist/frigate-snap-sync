@@ -6,6 +6,7 @@ version.workspace = true
 license.workspace = true
 
 [dependencies]
+anyhow = { workspace = true }
 libssh2-sys = { workspace = true }
 ssh2 = { workspace = true }
 thiserror = { workspace = true }
