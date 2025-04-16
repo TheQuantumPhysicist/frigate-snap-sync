@@ -44,6 +44,10 @@ impl StoreDestination for LocalStore {
             .map_err(Into::into)
     }
 
+    fn put_from_memory(&self, from: &[u8], to: &Path) -> Result<(), Self::Error> {
+        Ok(fs::write(to, from)?)
+    }
+
     fn dir_exists(&self, path: &Path) -> Result<bool, Self::Error> {
         Ok(self.resolve(&path).is_dir())
     }

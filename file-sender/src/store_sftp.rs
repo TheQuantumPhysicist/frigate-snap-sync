@@ -53,7 +53,7 @@ impl SftpImpl {
         Ok(result)
     }
 
-    pub fn ls<P: AsRef<Path>>(&self, path: &P) -> Result<Vec<PathBuf>, SftpError> {
+    pub fn ls<P: AsRef<Path>>(&self, path: P) -> Result<Vec<PathBuf>, SftpError> {
         let contents = self
             .sftp
             .readdir(path.as_ref())
@@ -62,7 +62,7 @@ impl SftpImpl {
         Ok(names)
     }
 
-    pub fn del<P: AsRef<Path>>(&self, path: &P) -> Result<(), SftpError> {
+    pub fn del<P: AsRef<Path>>(&self, path: P) -> Result<(), SftpError> {
         self.sftp
             .unlink(path.as_ref())
             .map_err(SftpError::DelFileFailed)
@@ -89,12 +89,13 @@ impl SftpImpl {
         Ok(())
     }
 
-    pub fn put<P: AsRef<Path>, Q: AsRef<Path>>(&self, from: &P, to: &Q) -> Result<(), SftpError> {
+    pub fn put<P: AsRef<Path>, Q: AsRef<Path>>(&self, from: P, to: Q) -> Result<(), SftpError> {
         if !from.as_ref().exists() {
             return Err(SftpError::SourceFileNotFound(from.as_ref().to_owned()));
         }
+        let from = from.as_ref();
         let src_file = std::fs::File::open(from)
-            .map_err(|e| SftpError::SourceFileOpenFailed(from.as_ref().to_owned(), e))?;
+            .map_err(|e| SftpError::SourceFileOpenFailed(from.to_owned(), e))?;
         let dest_file = self
             .sftp
             .open_mode(
@@ -107,6 +108,29 @@ impl SftpImpl {
 
         // We don't use std::io::buffer because this is more efficient with buffering
         Self::copy_buffers(src_file, dest_file)?;
+
+        Ok(())
+    }
+
+    pub fn put_from_memory<P: AsRef<[u8]>, Q: AsRef<Path>>(
+        &self,
+        from: P,
+        to: Q,
+    ) -> Result<(), SftpError> {
+        let dest_file = self
+            .sftp
+            .open_mode(
+                to.as_ref(),
+                OpenFlags::WRITE | OpenFlags::CREATE,
+                0o600,
+                ssh2::OpenType::File,
+            )
+            .map_err(SftpError::OpenDestinationFileToWriteFailed)?;
+
+        let from_buffer = from.as_ref();
+
+        // We don't use std::io::buffer because this is more efficient with buffering
+        Self::copy_buffers(from_buffer, dest_file)?;
 
         Ok(())
     }
@@ -133,7 +157,7 @@ impl SftpImpl {
         Ok(total_read)
     }
 
-    pub fn dir_exists<P: AsRef<Path>>(&self, path: &P) -> Result<bool, SftpError> {
+    pub fn dir_exists<P: AsRef<Path>>(&self, path: P) -> Result<bool, SftpError> {
         match self.sftp.readdir(path.as_ref()) {
             Ok(_) => Ok(true),
             Err(e) => {
@@ -146,7 +170,7 @@ impl SftpImpl {
         }
     }
 
-    pub fn file_exists<P: AsRef<Path>>(&self, path: &P) -> Result<bool, SftpError> {
+    pub fn file_exists<P: AsRef<Path>>(&self, path: P) -> Result<bool, SftpError> {
         match self.sftp.open(path.as_ref()) {
             Ok(_) => Ok(true),
             Err(e) => {
@@ -159,7 +183,7 @@ impl SftpImpl {
         }
     }
 
-    pub fn mkdir<P: AsRef<Path>>(&self, path: &P) -> Result<(), SftpError> {
+    pub fn mkdir<P: AsRef<Path>>(&self, path: P) -> Result<(), SftpError> {
         self.sftp
             .mkdir(path.as_ref(), 0o700)
             .map_err(SftpError::MkdirFailed)
@@ -217,19 +241,23 @@ impl StoreDestination for SftpImpl {
     type Error = anyhow::Error;
 
     fn ls(&self, path: &Path) -> Result<Vec<PathBuf>, Self::Error> {
-        self.ls(&path).map_err(Into::into)
+        self.ls(path).map_err(Into::into)
     }
 
     fn del_file(&self, path: &Path) -> Result<(), Self::Error> {
-        self.del(&path).map_err(Into::into)
+        self.del(path).map_err(Into::into)
     }
 
     fn put(&self, from: &Path, to: &Path) -> Result<(), Self::Error> {
-        self.put(&from, &to).map_err(Into::into)
+        self.put(from, to).map_err(Into::into)
+    }
+
+    fn put_from_memory(&self, from: &[u8], to: &Path) -> Result<(), Self::Error> {
+        self.put_from_memory(from, to).map_err(Into::into)
     }
 
     fn mkdir_p(&self, path: &Path) -> Result<(), Self::Error> {
-        if self.dir_exists(&path)? {
+        if self.dir_exists(path)? {
             return Ok(());
         }
 
@@ -240,14 +268,14 @@ impl StoreDestination for SftpImpl {
             }
         }
 
-        self.mkdir(&path).map_err(Into::into)
+        self.mkdir(path).map_err(Into::into)
     }
 
     fn dir_exists(&self, path: &Path) -> Result<bool, Self::Error> {
-        self.dir_exists(&path).map_err(Into::into)
+        self.dir_exists(path).map_err(Into::into)
     }
 
     fn file_exists(&self, path: &Path) -> Result<bool, Self::Error> {
-        self.file_exists(&path).map_err(Into::into)
+        self.file_exists(path).map_err(Into::into)
     }
 }

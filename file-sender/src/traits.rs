@@ -7,6 +7,7 @@ pub trait StoreDestination {
     fn del_file(&self, path: &Path) -> Result<(), Self::Error>;
     fn mkdir_p(&self, path: &Path) -> Result<(), Self::Error>;
     fn put(&self, from: &Path, to: &Path) -> Result<(), Self::Error>;
+    fn put_from_memory(&self, from: &[u8], to: &Path) -> Result<(), Self::Error>;
     fn dir_exists(&self, path: &Path) -> Result<bool, Self::Error>;
     fn file_exists(&self, path: &Path) -> Result<bool, Self::Error>;
 }

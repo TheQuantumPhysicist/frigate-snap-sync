@@ -28,6 +28,7 @@ fn make_sftp_store(
     )
 }
 
+#[must_use]
 pub fn make_store<E: std::error::Error>(
     store: &str,
 ) -> Option<Box<dyn StoreDestination<Error = anyhow::Error>>> {
@@ -86,7 +87,7 @@ fn parse_path(input: &str) -> Option<PathDescriptor> {
         }
     }
 
-    return None;
+    None
 }
 
 // TODO: write PathDescriptor parsing tests
