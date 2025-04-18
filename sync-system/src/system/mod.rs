@@ -190,13 +190,16 @@ where
         let senders = self.make_file_senders();
         for (descriptor, sender_result) in senders {
             match sender_result {
-                Ok(s) => {
-                    let _ = s.as_ref().ls(Path::new(".")).inspect_err(|e| {
+                Ok(s) => match s.as_ref().ls(Path::new(".")) {
+                    Ok(_) => {
+                        tracing::info!("Basic file sender test for `{descriptor}` succeeded!");
+                    }
+                    Err(e) => {
                         tracing::error!(
                             "Basic file sender test failed for descriptor `{descriptor}`: {e}",
                         );
-                    });
-                }
+                    }
+                },
                 Err(e) => {
                     tracing::error!(
                         "Failed to create file sender with descriptor `{descriptor}`: {e}",

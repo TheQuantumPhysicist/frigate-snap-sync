@@ -16,7 +16,7 @@ pub fn make_store(
     path_descriptor: &Arc<PathDescriptor>,
 ) -> anyhow::Result<Box<dyn StoreDestination<Error = anyhow::Error>>> {
     match path_descriptor.as_ref() {
-        PathDescriptor::Local(p) => Ok(make_local_store(path_descriptor.clone(), p)),
+        PathDescriptor::Local(p) => make_local_store(path_descriptor.clone(), p),
         PathDescriptor::Sftp {
             username,
             remote_address,
@@ -35,8 +35,9 @@ pub fn make_store(
 fn make_local_store(
     path_descriptor: Arc<PathDescriptor>,
     destination_dir: impl AsRef<Path>,
-) -> Box<dyn StoreDestination<Error = anyhow::Error>> {
-    Box::new(LocalStore::new(path_descriptor, destination_dir))
+) -> anyhow::Result<Box<dyn StoreDestination<Error = anyhow::Error>>> {
+    let store = LocalStore::new(path_descriptor, destination_dir)?;
+    Ok(Box::new(store))
 }
 
 fn make_sftp_store(

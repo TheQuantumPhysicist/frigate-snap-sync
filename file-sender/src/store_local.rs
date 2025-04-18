@@ -3,6 +3,8 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use anyhow::Context;
+
 use crate::path_descriptor::PathDescriptor;
 use crate::traits::StoreDestination;
 pub struct LocalStore {
@@ -11,11 +13,21 @@ pub struct LocalStore {
 }
 
 impl LocalStore {
-    pub fn new<P: AsRef<Path>>(path_descriptor: Arc<PathDescriptor>, dest_dir: P) -> Self {
-        Self {
+    pub fn new<P: AsRef<Path>>(
+        path_descriptor: Arc<PathDescriptor>,
+        dest_dir: P,
+    ) -> anyhow::Result<Self> {
+        let res = Self {
             path_descriptor,
             dest_dir: dest_dir.as_ref().to_path_buf(),
-        }
+        };
+
+        res.mkdir_p(dest_dir.as_ref()).context(format!(
+            "(Re-)creating local directory: {}",
+            dest_dir.as_ref().display()
+        ))?;
+
+        Ok(res)
     }
 
     fn resolve<P: AsRef<Path>>(&self, path: &P) -> PathBuf {
