@@ -6,6 +6,6 @@
         "mqtt"
     ],
     "terminal.integrated.env.osx": {
-        "RUST_LOG": "debug"
+        "RUST_LOG": "trace"
     },
 }

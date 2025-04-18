@@ -3,26 +3,34 @@ pub mod helpers;
 pub mod json;
 pub mod traits;
 
+use anyhow::Context;
 use async_trait::async_trait;
 use config::FrigateApiConfig;
 use json::review::Review;
 use serde_json::Value;
+use tracing::trace_span;
 use traits::FrigateApi;
 
-pub fn make_frigate_client(
-    config: FrigateApiConfig,
-    proxy_address: Option<String>,
-) -> anyhow::Result<Box<dyn FrigateApi>> {
+pub fn make_frigate_client(config: FrigateApiConfig) -> anyhow::Result<Box<dyn FrigateApi>> {
+    let span = trace_span!("make_frigate_client");
+    let _enter = span.enter();
+    tracing::trace!("Begin make_frigate_client function");
     let builder = reqwest::ClientBuilder::new();
-    let client = match proxy_address {
+    tracing::trace!("Builder created");
+    let client = match &config.frigate_api_proxy {
         Some(proxy) => builder
-            .proxy(reqwest::Proxy::all(proxy).unwrap_or_else(|e| panic!("Invalid proxy URL: {e}")))
+            .proxy(reqwest::Proxy::all(proxy).context("Invalid proxy URL")?)
             .build()
-            .expect("Client builder with proxy failed"),
-        None => builder.build().expect("Client builder failed"),
+            .context("Building Frigate API with proxy")?,
+        None => builder
+            .build()
+            .context("Building Frigate API without proxy")?,
     };
+    tracing::trace!("Building client done");
 
     let result = FrigateApiClient { client, config };
+
+    tracing::trace!("Returning API object");
 
     Ok(Box::new(result))
 }
@@ -35,15 +43,30 @@ struct FrigateApiClient {
 #[async_trait]
 impl FrigateApi for FrigateApiClient {
     async fn test_call(&self) -> anyhow::Result<()> {
+        let span = tracing::trace_span!("Frigate API test_call");
+        let _enter = span.enter();
+        tracing::trace!("Start");
+
         let base_url = &self.config.frigate_api_base_url;
         let url = format!("{base_url}/api/review/summary");
+
+        tracing::trace!("Creating request");
+
         let request = self
             .client
-            .request(reqwest::Method::GET, url)
+            .request(reqwest::Method::GET, &url)
             .headers(json_headers_map());
-        let response = request.send().await?;
-        let response_json = response.json::<Value>().await?;
 
+        tracing::trace!("Submitting request to URL: {url}");
+        let response = request
+            .send()
+            .await
+            .context("Sending test request failed")?;
+
+        tracing::trace!("Parsing response request");
+        let response_json = response.json::<Value>().await.context("Parsing response")?;
+
+        tracing::trace!("Printing results");
         // Review summaries always contain the key "last24Hours"
         match response_json.get("last24Hours") {
             Some(_) => {
@@ -55,6 +78,8 @@ impl FrigateApi for FrigateApiClient {
                 ));
             }
         }
+
+        tracing::trace!("End");
 
         Ok(())
     }
@@ -142,8 +167,9 @@ mod tests {
     async fn test_call(base_url: String) {
         let config = FrigateApiConfig {
             frigate_api_base_url: base_url,
+            frigate_api_proxy: None,
         };
-        let frigate_client = make_frigate_client(config, None).unwrap();
+        let frigate_client = make_frigate_client(config).unwrap();
         frigate_client.test_call().await.unwrap();
     }
 
@@ -155,8 +181,9 @@ mod tests {
 
         let config = FrigateApiConfig {
             frigate_api_base_url: base_url,
+            frigate_api_proxy: None,
         };
-        let frigate_client = make_frigate_client(config, None).unwrap();
+        let frigate_client = make_frigate_client(config).unwrap();
         println!(
             "Review: {:?}",
             frigate_client.review(review_id).await.unwrap()
@@ -173,8 +200,9 @@ mod tests {
 
         let config = FrigateApiConfig {
             frigate_api_base_url: base_url,
+            frigate_api_proxy: None,
         };
-        let frigate_client = make_frigate_client(config, None).unwrap();
+        let frigate_client = make_frigate_client(config).unwrap();
         let mov = frigate_client
             .recording_clip(camera_label, start_timestamp, end_timestamp)
             .await

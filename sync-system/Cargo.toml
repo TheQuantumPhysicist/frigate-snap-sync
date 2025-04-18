@@ -1,28 +1,25 @@
 [package]
-name = "mqtt-handler"
+name = "sync-system"
 edition.workspace = true
 rust-version.workspace = true
 version.workspace = true
 license.workspace = true
 
 [dependencies]
-anyhow = { workspace = true}
-
-bytes = { workspace = true }
+anyhow = { workspace = true }
 chrono = { workspace = true }
-image = { workspace = true }
-rumqttc = { workspace = true }
+futures = { workspace = true }
+itertools = { workspace = true }
+serde_yml = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
-tap = { workspace = true }
 tracing = { workspace = true }
 
-[dev-dependencies]
-randomness = { workspace = true }
-rstest = { workspace = true }
-test-utils = { workspace = true }
+file-sender = { workspace = true }
+frigate-api-caller = { workspace = true }
+logging = { workspace = true }
+mqtt-handler = { workspace = true }
 
 [lints]
 workspace = true

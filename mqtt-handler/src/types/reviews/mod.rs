@@ -35,4 +35,14 @@ impl Reviews {
             None
         }
     }
+
+    #[must_use]
+    pub fn camera_name(&self) -> &str {
+        &self.payload.before.camera
+    }
+
+    #[must_use]
+    pub fn id(&self) -> &str {
+        &self.payload.before.id
+    }
 }

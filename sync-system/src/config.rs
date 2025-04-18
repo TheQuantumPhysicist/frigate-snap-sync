@@ -1,5 +1,10 @@
-use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use file_sender::path_descriptor::PathDescriptor;
+use serde::{Deserialize, Deserializer, de::Error};
+use std::{
+    path::{Path, PathBuf},
+    str::FromStr,
+    sync::Arc,
+};
 
 const DEFAULT_FRIGATE_TOPIC_PREFIX: &str = "frigate";
 const DEFAULT_MQTT_PORT: u16 = 1883;
@@ -17,7 +22,7 @@ pub enum ConfigError {
 }
 
 #[must_use]
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct VideoSyncConfig {
     mqtt_frigate_topic_prefix: Option<String>,
     mqtt_host: String,
@@ -26,6 +31,12 @@ pub struct VideoSyncConfig {
     mqtt_username: Option<String>,
     mqtt_password: Option<String>,
     mqtt_client_id: Option<String>,
+
+    frigate_api_address: String,
+    frigate_api_proxy: Option<String>,
+
+    #[serde(deserialize_with = "upload_destinations_from_str")]
+    upload_destinations: PathDescriptors,
 }
 
 impl VideoSyncConfig {
@@ -80,5 +91,61 @@ impl VideoSyncConfig {
 
     pub fn set_mqtt_frigate_topic_prefix(&mut self, value: Option<String>) {
         self.mqtt_frigate_topic_prefix = value;
+    }
+
+    pub fn frigate_api_address(&self) -> &str {
+        &self.frigate_api_address
+    }
+
+    pub fn frigate_api_proxy(&self) -> Option<&str> {
+        match &self.frigate_api_proxy {
+            Some(s) => Some(s.as_str()),
+            None => None,
+        }
+    }
+
+    pub fn upload_destinations(&self) -> &PathDescriptors {
+        &self.upload_destinations
+    }
+}
+
+fn upload_destinations_from_str<'de, D>(deserializer: D) -> Result<PathDescriptors, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let d_vec = Vec::<String>::deserialize(deserializer)?;
+    if d_vec.is_empty() {
+        return Err(D::Error::custom(
+            "Upload destinations cannot be empty. Include one at least",
+        ));
+    }
+
+    let mut result = Vec::with_capacity(d_vec.len());
+    for d in d_vec {
+        let path_descriptor = PathDescriptor::from_str(&d)
+            .map_err(|e| D::Error::custom(format!("Invalid path descriptor provided: {e}")))?;
+        result.push(Arc::new(path_descriptor));
+    }
+    Ok(result.into())
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct PathDescriptors {
+    pub path_descriptors: Arc<Vec<Arc<PathDescriptor>>>,
+}
+
+impl From<Arc<Vec<Arc<PathDescriptor>>>> for PathDescriptors {
+    fn from(v: Arc<Vec<Arc<PathDescriptor>>>) -> Self {
+        Self {
+            path_descriptors: v,
+        }
+    }
+}
+
+impl From<Vec<Arc<PathDescriptor>>> for PathDescriptors {
+    fn from(v: Vec<Arc<PathDescriptor>>) -> Self {
+        Self {
+            path_descriptors: Arc::new(v),
+        }
     }
 }

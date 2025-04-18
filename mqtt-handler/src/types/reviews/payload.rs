@@ -3,9 +3,9 @@
 #[derive(Debug, serde::Deserialize, Clone)]
 pub struct ReviewsPayload {
     #[serde(rename = "type")]
-    type_field: TypeField,
-    before: BeforeAfterField,
-    after: BeforeAfterField,
+    pub type_field: TypeField,
+    pub before: BeforeAfterField,
+    pub after: BeforeAfterField,
 }
 
 #[derive(Debug, PartialEq, Eq, serde::Deserialize, Clone)]
@@ -18,13 +18,13 @@ pub enum TypeField {
 
 #[derive(Debug, serde::Deserialize, Clone)]
 pub struct BeforeAfterField {
-    id: String,
-    camera: String,
-    start_time: f64,
-    end_time: Option<f64>,
-    severity: String,
-    thumb_path: String,
-    data: ReviewData,
+    pub id: String,
+    pub camera: String,
+    pub start_time: f64,
+    pub end_time: Option<f64>,
+    pub severity: String,
+    pub thumb_path: String,
+    pub data: ReviewData,
 }
 
 #[derive(Debug, serde::Deserialize, Clone)]

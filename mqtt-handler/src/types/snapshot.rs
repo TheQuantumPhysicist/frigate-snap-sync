@@ -33,4 +33,15 @@ impl Snapshot {
             None
         }
     }
+
+    #[must_use]
+    pub fn make_file_name(&self) -> String {
+        let datetime = chrono::Local::now()
+            .format("%Y-%m-%d_%H-%M-%S%z")
+            .to_string();
+        format!(
+            "Snapshot-{}-{datetime}-{}.jpg",
+            self.camera_label, self.object_name
+        )
+    }
 }

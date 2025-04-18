@@ -1,14 +1,14 @@
+use crate::{path_descriptor::PathDescriptor, traits::StoreDestination};
+use ssh2::{self, ErrorCode, OpenFlags, Session};
 use std::{
     io::{BufRead, BufReader},
     net::TcpStream,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
-use crate::traits::StoreDestination;
-
-use ssh2::{self, ErrorCode, OpenFlags, Session};
-
 pub struct SftpImpl {
+    path_descriptor: Arc<PathDescriptor>,
     #[allow(dead_code)]
     session: ssh2::Session,
     sftp: ssh2::Sftp,
@@ -18,6 +18,7 @@ pub struct SftpImpl {
 
 impl SftpImpl {
     pub fn new_with_public_key(
+        path_descriptor: Arc<PathDescriptor>,
         host: &str,
         username: &str,
         priv_key_path: impl AsRef<Path>,
@@ -46,6 +47,7 @@ impl SftpImpl {
             .map_err(|_e| SftpError::DestPathNotFound(dest_dir.clone()))?;
 
         let result = SftpImpl {
+            path_descriptor,
             session,
             sftp,
             destination_path: dest_dir,
@@ -277,5 +279,9 @@ impl StoreDestination for SftpImpl {
 
     fn file_exists(&self, path: &Path) -> Result<bool, Self::Error> {
         self.file_exists(path).map_err(Into::into)
+    }
+
+    fn path_descriptor(&self) -> &Arc<PathDescriptor> {
+        &self.path_descriptor
     }
 }

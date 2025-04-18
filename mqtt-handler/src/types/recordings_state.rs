@@ -5,8 +5,8 @@ use super::utils::on_off_from_bytes;
 #[must_use]
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct RecordingsState {
-    camera_label: String,
-    state: bool,
+    pub camera_label: String,
+    pub state: bool,
 }
 
 impl RecordingsState {

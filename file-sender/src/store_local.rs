@@ -1,15 +1,19 @@
 use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::Arc;
 
+use crate::path_descriptor::PathDescriptor;
 use crate::traits::StoreDestination;
 pub struct LocalStore {
+    path_descriptor: Arc<PathDescriptor>,
     dest_dir: PathBuf,
 }
 
 impl LocalStore {
-    pub fn new<P: AsRef<Path>>(dest_dir: P) -> Self {
+    pub fn new<P: AsRef<Path>>(path_descriptor: Arc<PathDescriptor>, dest_dir: P) -> Self {
         Self {
+            path_descriptor,
             dest_dir: dest_dir.as_ref().to_path_buf(),
         }
     }
@@ -54,5 +58,9 @@ impl StoreDestination for LocalStore {
 
     fn file_exists(&self, path: &Path) -> Result<bool, Self::Error> {
         Ok(self.resolve(&path).is_file())
+    }
+
+    fn path_descriptor(&self) -> &Arc<PathDescriptor> {
+        &self.path_descriptor
     }
 }

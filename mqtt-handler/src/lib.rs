@@ -1,6 +1,6 @@
 use config::MqttHandlerConfig;
 use rumqttc::{AsyncClient, Event, MqttOptions, Packet, QoS};
-use tokio::sync::{mpsc::UnboundedReceiver, oneshot};
+use tokio::sync::{mpsc::UnboundedSender, oneshot};
 use types::CapturedPayloads;
 
 pub mod config;
@@ -8,13 +8,14 @@ pub mod types;
 
 pub struct MqttHandler {
     task_handle: Option<tokio::task::JoinHandle<()>>,
-    data_receiver: UnboundedReceiver<CapturedPayloads>,
     stop_sender: Option<oneshot::Sender<()>>,
 }
 
 impl MqttHandler {
-    pub fn new(config: MqttHandlerConfig) -> anyhow::Result<Self> {
-        let (data_sender, data_receiver) = tokio::sync::mpsc::unbounded_channel();
+    pub fn new(
+        config: MqttHandlerConfig,
+        data_sender: UnboundedSender<CapturedPayloads>,
+    ) -> anyhow::Result<Self> {
         let mqtt_options = (&config).try_into()?;
         let (stop_sender, stop_receiver) = oneshot::channel();
         let task_handle = tokio::task::spawn(launch_eventloop(
@@ -25,14 +26,8 @@ impl MqttHandler {
         ));
         Ok(Self {
             task_handle: Some(task_handle),
-            data_receiver,
             stop_sender: Some(stop_sender),
         })
-    }
-
-    #[must_use]
-    pub fn receiver(&self) -> &UnboundedReceiver<CapturedPayloads> {
-        &self.data_receiver
     }
 
     pub async fn wait(&mut self) {
