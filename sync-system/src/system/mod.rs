@@ -1,5 +1,5 @@
 mod common;
-mod snapshot_task;
+mod snapshot_upload_task;
 pub mod traits;
 
 use crate::{config::VideoSyncConfig, state::CamerasState};
@@ -10,7 +10,7 @@ use mqtt_handler::{
     config::MqttHandlerConfig,
     types::{CapturedPayloads, snapshot::Snapshot},
 };
-use snapshot_task::SnapshotTask;
+use snapshot_upload_task::SnapshotTask;
 use std::{marker::PhantomData, path::Path, sync::Arc};
 use tokio::task::JoinHandle;
 use traits::{AsyncFileSenderResult, FileSenderMaker, FrigateApiMaker};
