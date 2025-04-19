@@ -12,7 +12,7 @@ use mqtt_handler::{
     types::{CapturedPayloads, snapshot::Snapshot},
 };
 use recording_upload_task::{RecordingTaskHandler, RecordingTaskHandlerUpdate};
-use snapshot_upload_task::SnapshotTask;
+use snapshot_upload_task::SnapshotUploadTask;
 use std::{path::Path, sync::Arc};
 use tokio::task::JoinHandle;
 use traits::{FileSenderMaker, FrigateApiMaker};
@@ -257,7 +257,7 @@ where
         let file_sender_maker = self.file_sender_maker.clone();
         let handle = tokio::task::spawn(async move {
             let snapshot = snapshot;
-            let task = SnapshotTask::new(snapshot, file_sender_maker, path_descriptors);
+            let task = SnapshotUploadTask::new(snapshot, file_sender_maker, path_descriptors);
             task.launch();
         });
         self.tasks_handles.push(handle);

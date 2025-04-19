@@ -7,15 +7,14 @@ use mqtt_handler::types::snapshot::Snapshot;
 use std::{path::Path, sync::Arc};
 use tokio::task::JoinHandle;
 
-// TODO: rename to SnapshotUploadTask
 #[must_use]
-pub struct SnapshotTask<S> {
+pub struct SnapshotUploadTask<S> {
     snapshot: Snapshot,
     file_sender_maker: Arc<S>,
     file_senders_path_descriptors: PathDescriptors,
 }
 
-impl<S: FileSenderMaker> SnapshotTask<S> {
+impl<S: FileSenderMaker> SnapshotUploadTask<S> {
     pub fn new(
         snapshot: Snapshot,
         file_sender_maker: Arc<S>,
