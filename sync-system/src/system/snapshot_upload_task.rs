@@ -1,27 +1,21 @@
-use std::{marker::PhantomData, path::Path, sync::Arc};
-
-use file_sender::path_descriptor::PathDescriptor;
-use futures::future::join_all;
-use mqtt_handler::types::snapshot::Snapshot;
-use tokio::task::JoinHandle;
-
-use crate::{config::PathDescriptors, system::SLEEP_AFTER_ERROR};
-
 use super::{
     FileSenderMaker, MAX_ATTEMPT_COUNT,
-    common::{FileSenderOrPathDescriptor, split_file_senders_and_descriptors},
-    traits::AsyncFileSenderResult,
+    common::{make_file_senders, split_file_senders_and_descriptors},
 };
+use crate::{config::PathDescriptors, system::SLEEP_AFTER_ERROR};
+use mqtt_handler::types::snapshot::Snapshot;
+use std::{path::Path, sync::Arc};
+use tokio::task::JoinHandle;
 
+// TODO: rename to SnapshotUploadTask
 #[must_use]
-pub struct SnapshotTask<S, F> {
+pub struct SnapshotTask<S> {
     snapshot: Snapshot,
     file_sender_maker: Arc<S>,
     file_senders_path_descriptors: PathDescriptors,
-    _marker: PhantomData<F>,
 }
 
-impl<F: AsyncFileSenderResult, S: FileSenderMaker<F>> SnapshotTask<S, F> {
+impl<S: FileSenderMaker> SnapshotTask<S> {
     pub fn new(
         snapshot: Snapshot,
         file_sender_maker: Arc<S>,
@@ -31,7 +25,6 @@ impl<F: AsyncFileSenderResult, S: FileSenderMaker<F>> SnapshotTask<S, F> {
             snapshot,
             file_sender_maker,
             file_senders_path_descriptors,
-            _marker: PhantomData,
         }
     }
 
@@ -57,7 +50,7 @@ impl<F: AsyncFileSenderResult, S: FileSenderMaker<F>> SnapshotTask<S, F> {
                 }
 
                 let file_senders =
-                    Self::make_file_senders(file_sender_maker.clone(), remaining_descriptors).await;
+                    make_file_senders(&file_sender_maker, &remaining_descriptors).await;
                 let (file_senders, path_descriptors) =
                     split_file_senders_and_descriptors(file_senders);
 
@@ -120,29 +113,5 @@ impl<F: AsyncFileSenderResult, S: FileSenderMaker<F>> SnapshotTask<S, F> {
 
     pub fn launch(self) -> JoinHandle<()> {
         tokio::task::spawn(self.launch_inner())
-    }
-
-    async fn make_file_senders(
-        file_sender_maker: Arc<S>,
-        remaining_path_descriptors: Vec<Arc<PathDescriptor>>,
-    ) -> Vec<FileSenderOrPathDescriptor> {
-        let senders = remaining_path_descriptors
-            .iter()
-            .map(|d| (d.clone(), (file_sender_maker)(d.clone())));
-
-        let senders_vec = join_all(senders.map(|(d, s)| async { (d, s.await) })).await;
-
-        senders_vec
-            .into_iter()
-            .map(|(descriptor, sender_result)| match sender_result {
-                Ok(s) => s.into(),
-                Err(e) => {
-                    tracing::error!(
-                        "Failed to create file sender with descriptor `{descriptor}`: {e}",
-                    );
-                    descriptor.into()
-                }
-            })
-            .collect::<Vec<_>>()
     }
 }

@@ -19,7 +19,7 @@ pub struct SftpImpl {
 
 impl SftpImpl {
     #[allow(clippy::unused_async)] // TODO: remove this when the impl is async
-    pub async fn new_with_public_key(
+    pub fn new_with_public_key(
         path_descriptor: Arc<PathDescriptor>,
         host: &str,
         username: &str,
@@ -244,6 +244,10 @@ fn get_all_parents_for_mkdir_p<P: AsRef<Path>>(path: P) -> Vec<PathBuf> {
 #[async_trait]
 impl StoreDestination for SftpImpl {
     type Error = anyhow::Error;
+
+    async fn init(&self) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
     async fn ls(&self, path: &Path) -> Result<Vec<PathBuf>, Self::Error> {
         self.ls(path).map_err(Into::into)

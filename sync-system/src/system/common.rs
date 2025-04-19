@@ -1,6 +1,6 @@
-use std::sync::Arc;
-
+use super::traits::FileSenderMaker;
 use file_sender::{path_descriptor::PathDescriptor, traits::StoreDestination};
+use std::sync::Arc;
 
 pub enum FileSenderOrPathDescriptor {
     // Represent a successful establishment of the sender
@@ -35,4 +35,42 @@ pub fn split_file_senders_and_descriptors(
         FileSenderOrPathDescriptor::PathDescriptor(path_descriptor) => d.push(path_descriptor),
     });
     (s, d)
+}
+
+pub async fn make_file_senders<S: FileSenderMaker>(
+    file_sender_maker: &Arc<S>,
+    remaining_path_descriptors: &[Arc<PathDescriptor>],
+) -> Vec<FileSenderOrPathDescriptor> {
+    let result =
+        remaining_path_descriptors
+            .iter()
+            .map(|d| (d.clone(), (file_sender_maker)(d)))
+            .map(|(descriptor, sender_result)| match sender_result {
+                Ok(s) => s.into(),
+                Err(e) => {
+                    tracing::error!(
+                        "Failed to create file sender with descriptor `{descriptor}`: {e}",
+                    );
+                    descriptor.into()
+                }
+            })
+            .collect::<Vec<_>>();
+
+    // Initialize file senders that were successfully opened
+    for sender in &result {
+        if let FileSenderOrPathDescriptor::FileSender(s) = sender {
+            match s.init().await {
+                Ok(()) => tracing::trace!(
+                    "Initializing file sender with descriptor `{}` is successful.",
+                    s.path_descriptor()
+                ),
+                Err(e) => tracing::error!(
+                    "Error while initializing file sender after successful creation. Path descriptor: `{}`. Error: {e}",
+                    s.path_descriptor()
+                ),
+            }
+        }
+    }
+
+    result
 }

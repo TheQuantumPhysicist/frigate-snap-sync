@@ -1,10 +1,9 @@
+use anyhow::Context;
+use async_trait::async_trait;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::fs;
-
-use anyhow::Context;
-use async_trait::async_trait;
 
 use crate::path_descriptor::PathDescriptor;
 use crate::traits::StoreDestination;
@@ -14,24 +13,14 @@ pub struct LocalStore {
 }
 
 impl LocalStore {
-    pub async fn new<P: AsRef<Path>>(
-        path_descriptor: Arc<PathDescriptor>,
-        dest_dir: P,
-    ) -> anyhow::Result<Self> {
+    pub fn new<P: AsRef<Path>>(path_descriptor: Arc<PathDescriptor>, dest_dir: P) -> Self {
         let dest_dir = dest_dir.as_ref();
         tracing::debug!("Creating local storage object in {}", dest_dir.display());
 
-        let res = Self {
+        Self {
             path_descriptor,
             dest_dir: dest_dir.to_path_buf(),
-        };
-
-        res.mkdir_p(dest_dir.as_ref()).await.context(format!(
-            "(Re-)creating local directory: {}",
-            dest_dir.display()
-        ))?;
-
-        Ok(res)
+        }
     }
 
     fn resolve<P: AsRef<Path>>(&self, path: &P) -> PathBuf {
@@ -42,6 +31,15 @@ impl LocalStore {
 #[async_trait]
 impl StoreDestination for LocalStore {
     type Error = anyhow::Error;
+
+    async fn init(&self) -> Result<(), Self::Error> {
+        self.mkdir_p(self.dest_dir.as_ref()).await.context(format!(
+            "(Re-)creating local directory: {}",
+            self.dest_dir.display()
+        ))?;
+
+        Ok(())
+    }
 
     async fn ls(&self, path: &Path) -> Result<Vec<PathBuf>, Self::Error> {
         let full_path = self.resolve(&path);

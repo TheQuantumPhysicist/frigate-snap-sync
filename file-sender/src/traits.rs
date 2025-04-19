@@ -14,6 +14,7 @@ use crate::path_descriptor::PathDescriptor;
 pub trait StoreDestination: Send + Sync {
     type Error;
 
+    async fn init(&self) -> Result<(), Self::Error>;
     async fn ls(&self, path: &Path) -> Result<Vec<PathBuf>, Self::Error>;
     async fn del_file(&self, path: &Path) -> Result<(), Self::Error>;
     async fn mkdir_p(&self, path: &Path) -> Result<(), Self::Error>;

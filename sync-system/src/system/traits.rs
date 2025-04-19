@@ -13,24 +13,18 @@ impl<T> FrigateApiMaker for T where
 {
 }
 
-pub trait AsyncFileSenderResult:
-    Future<Output = anyhow::Result<Box<dyn StoreDestination<Error = anyhow::Error>>>> + Send + 'static
+pub trait FileSenderMaker:
+    Fn(&Arc<PathDescriptor>) -> anyhow::Result<Box<dyn StoreDestination<Error = anyhow::Error>>>
+    + Send
+    + Sync
+    + 'static
 {
 }
 
-impl<F> AsyncFileSenderResult for F where
-    F: Future<Output = anyhow::Result<Box<dyn StoreDestination<Error = anyhow::Error>>>>
+impl<T> FileSenderMaker for T where
+    T: Fn(&Arc<PathDescriptor>) -> anyhow::Result<Box<dyn StoreDestination<Error = anyhow::Error>>>
         + Send
+        + Sync
         + 'static
-{
-}
-
-pub trait FileSenderMaker<F: AsyncFileSenderResult>:
-    Fn(Arc<PathDescriptor>) -> F + Send + Sync + 'static
-{
-}
-
-impl<T, F: AsyncFileSenderResult> FileSenderMaker<F> for T where
-    T: Fn(Arc<PathDescriptor>) -> F + Send + Sync + 'static
 {
 }
