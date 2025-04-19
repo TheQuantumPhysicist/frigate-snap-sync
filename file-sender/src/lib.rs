@@ -12,11 +12,11 @@ use store_local::LocalStore;
 use store_sftp::SftpImpl;
 use traits::StoreDestination;
 
-pub fn make_store(
-    path_descriptor: &Arc<PathDescriptor>,
+pub async fn make_store(
+    path_descriptor: Arc<PathDescriptor>,
 ) -> anyhow::Result<Box<dyn StoreDestination<Error = anyhow::Error>>> {
     match path_descriptor.as_ref() {
-        PathDescriptor::Local(p) => make_local_store(path_descriptor.clone(), p),
+        PathDescriptor::Local(p) => make_local_store(path_descriptor.clone(), p).await,
         PathDescriptor::Sftp {
             username,
             remote_address,
@@ -32,11 +32,11 @@ pub fn make_store(
     }
 }
 
-fn make_local_store(
+async fn make_local_store(
     path_descriptor: Arc<PathDescriptor>,
     destination_dir: impl AsRef<Path>,
 ) -> anyhow::Result<Box<dyn StoreDestination<Error = anyhow::Error>>> {
-    let store = LocalStore::new(path_descriptor, destination_dir)?;
+    let store = LocalStore::new(path_descriptor, destination_dir).await?;
     Ok(Box::new(store))
 }
 

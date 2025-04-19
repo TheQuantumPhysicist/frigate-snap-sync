@@ -39,11 +39,11 @@ pub async fn run() -> anyhow::Result<()> {
     let config = VideoSyncConfig::from_file_or_default("config.yaml")?;
 
     let frigate_api_maker = move |cfg: &FrigateApiConfig| make_frigate_client(cfg.clone());
-    let file_sender_maker = move |pd: &Arc<PathDescriptor>| make_store(pd);
+    let file_sender_maker = async move |pd: Arc<PathDescriptor>| make_store(pd).await;
 
     let mut sync_sys = SyncSystem::new(config, frigate_api_maker, file_sender_maker);
 
-    sync_sys.run().await?;
+    sync_sys.run_f().await?;
 
     Ok(())
 }

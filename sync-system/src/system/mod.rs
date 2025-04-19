@@ -5,15 +5,15 @@ pub mod traits;
 use crate::{config::VideoSyncConfig, state::CamerasState};
 use file_sender::{path_descriptor::PathDescriptor, traits::StoreDestination};
 use frigate_api_caller::{config::FrigateApiConfig, traits::FrigateApi};
-use futures::{StreamExt, stream::FuturesUnordered};
+use futures::{StreamExt, future::join_all, stream::FuturesUnordered};
 use mqtt_handler::{
     config::MqttHandlerConfig,
     types::{CapturedPayloads, snapshot::Snapshot},
 };
 use snapshot_task::SnapshotTask;
-use std::{path::Path, sync::Arc};
+use std::{marker::PhantomData, path::Path, sync::Arc};
 use tokio::task::JoinHandle;
-use traits::{FileSenderMaker, FrigateApiMaker};
+use traits::{AsyncFileSenderResult, FileSenderMaker, FrigateApiMaker};
 
 const MAX_ATTEMPT_COUNT: u32 = 128;
 const SLEEP_AFTER_ERROR: std::time::Duration = std::time::Duration::from_secs(5);
@@ -28,19 +28,21 @@ const STRUCT_NAME: &str = struct_name!(SyncSystem);
 
 const SLEEP_TIME_ON_API_ERROR: std::time::Duration = std::time::Duration::from_secs(10);
 
-pub struct SyncSystem<F, S> {
+pub struct SyncSystem<F, S, SF> {
     cameras_state: CamerasState,
     config: VideoSyncConfig,
     frigate_api_config: Arc<FrigateApiConfig>,
     frigate_api_maker: Arc<F>,
     file_sender_maker: Arc<S>,
     tasks_handles: FuturesUnordered<JoinHandle<()>>,
+    _marker: PhantomData<SF>,
 }
 
-impl<F, S> SyncSystem<F, S>
+impl<F, S, SF> SyncSystem<F, S, SF>
 where
     F: FrigateApiMaker,
-    S: FileSenderMaker,
+    S: FileSenderMaker<SF>,
+    SF: AsyncFileSenderResult,
 {
     pub fn new(config: VideoSyncConfig, frigate_api_maker: F, file_sender_maker: S) -> Self {
         let frigate_api_config = FrigateApiConfig::from(&config);
@@ -51,10 +53,11 @@ where
             frigate_api_maker: Arc::new(frigate_api_maker),
             tasks_handles: FuturesUnordered::default(),
             file_sender_maker: Arc::new(file_sender_maker),
+            _marker: PhantomData,
         }
     }
 
-    pub async fn run(&mut self) -> anyhow::Result<()> {
+    pub async fn run_f(&mut self) -> anyhow::Result<()> {
         let mqtt_config = MqttHandlerConfig::from(&self.config);
 
         let (data_sender, mut data_receiver) = tokio::sync::mpsc::unbounded_channel();
@@ -63,7 +66,7 @@ where
 
         self.test_frigate_api_connection().await;
 
-        self.test_file_senders();
+        self.test_file_senders().await;
 
         let stopped = false; // TODO: use a signal to trigger this, including mqtt_handler
 
@@ -163,18 +166,22 @@ where
     }
 
     #[allow(clippy::type_complexity)]
-    pub fn make_file_senders(
+    pub async fn make_file_senders(
         &self,
     ) -> Vec<(
         Arc<PathDescriptor>,
         anyhow::Result<Box<dyn StoreDestination<Error = anyhow::Error>>>,
     )> {
-        self.config
+        let r = self
+            .config
             .upload_destinations()
             .path_descriptors
             .iter()
-            .map(|d| (d.clone(), (self.file_sender_maker)(d)))
-            .collect::<Vec<_>>()
+            .map(|d| (d.clone(), (self.file_sender_maker)(d.clone())))
+            // .collect::<Vec<_>>()
+            ;
+
+        join_all(r.into_iter().map(|(d, s)| async { (d, s.await) })).await
     }
 
     pub async fn test_frigate_api_connection(&self) {
@@ -195,11 +202,11 @@ where
         }
     }
 
-    pub fn test_file_senders(&self) {
-        let senders = self.make_file_senders();
+    pub async fn test_file_senders(&self) {
+        let senders = self.make_file_senders().await;
         for (descriptor, sender_result) in senders {
             match sender_result {
-                Ok(s) => match s.as_ref().ls(Path::new(".")) {
+                Ok(s) => match s.as_ref().ls(Path::new(".")).await {
                     Ok(_) => {
                         tracing::info!("Basic file sender test for `{descriptor}` succeeded!");
                     }

@@ -1,4 +1,5 @@
 use crate::{path_descriptor::PathDescriptor, traits::StoreDestination};
+use async_trait::async_trait;
 use ssh2::{self, ErrorCode, OpenFlags, Session};
 use std::{
     io::{BufRead, BufReader},
@@ -239,26 +240,27 @@ fn get_all_parents_for_mkdir_p<P: AsRef<Path>>(path: P) -> Vec<PathBuf> {
     result.into_iter().rev().collect()
 }
 
+#[async_trait]
 impl StoreDestination for SftpImpl {
     type Error = anyhow::Error;
 
-    fn ls(&self, path: &Path) -> Result<Vec<PathBuf>, Self::Error> {
+    async fn ls(&self, path: &Path) -> Result<Vec<PathBuf>, Self::Error> {
         self.ls(path).map_err(Into::into)
     }
 
-    fn del_file(&self, path: &Path) -> Result<(), Self::Error> {
+    async fn del_file(&self, path: &Path) -> Result<(), Self::Error> {
         self.del(path).map_err(Into::into)
     }
 
-    fn put(&self, from: &Path, to: &Path) -> Result<(), Self::Error> {
+    async fn put(&self, from: &Path, to: &Path) -> Result<(), Self::Error> {
         self.put(from, to).map_err(Into::into)
     }
 
-    fn put_from_memory(&self, from: &[u8], to: &Path) -> Result<(), Self::Error> {
+    async fn put_from_memory(&self, from: &[u8], to: &Path) -> Result<(), Self::Error> {
         self.put_from_memory(from, to).map_err(Into::into)
     }
 
-    fn mkdir_p(&self, path: &Path) -> Result<(), Self::Error> {
+    async fn mkdir_p(&self, path: &Path) -> Result<(), Self::Error> {
         if self.dir_exists(path)? {
             return Ok(());
         }
@@ -273,11 +275,11 @@ impl StoreDestination for SftpImpl {
         self.mkdir(path).map_err(Into::into)
     }
 
-    fn dir_exists(&self, path: &Path) -> Result<bool, Self::Error> {
+    async fn dir_exists(&self, path: &Path) -> Result<bool, Self::Error> {
         self.dir_exists(path).map_err(Into::into)
     }
 
-    fn file_exists(&self, path: &Path) -> Result<bool, Self::Error> {
+    async fn file_exists(&self, path: &Path) -> Result<bool, Self::Error> {
         self.file_exists(path).map_err(Into::into)
     }
 
