@@ -22,13 +22,16 @@ pub async fn make_store(
             remote_address,
             remote_path,
             identity,
-        } => make_sftp_store(
-            path_descriptor.clone(),
-            remote_address,
-            username,
-            identity,
-            remote_path,
-        ),
+        } => {
+            make_sftp_store(
+                path_descriptor.clone(),
+                remote_address,
+                username,
+                identity,
+                remote_path,
+            )
+            .await
+        }
     }
 }
 
@@ -40,7 +43,7 @@ async fn make_local_store(
     Ok(Box::new(store))
 }
 
-fn make_sftp_store(
+async fn make_sftp_store(
     path_descriptor: Arc<PathDescriptor>,
     host: &str,
     username: &str,
@@ -53,7 +56,8 @@ fn make_sftp_store(
         username,
         &priv_key_path,
         destination_path,
-    )?;
+    )
+    .await?;
 
     Ok(Box::new(sftp))
 }

@@ -43,7 +43,7 @@ pub async fn run() -> anyhow::Result<()> {
 
     let mut sync_sys = SyncSystem::new(config, frigate_api_maker, file_sender_maker);
 
-    sync_sys.run_f().await?;
+    sync_sys.run().await?;
 
     Ok(())
 }

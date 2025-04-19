@@ -14,9 +14,12 @@ use traits::FrigateApi;
 pub fn make_frigate_client(config: FrigateApiConfig) -> anyhow::Result<Box<dyn FrigateApi>> {
     let span = trace_span!("make_frigate_client");
     let _enter = span.enter();
+
     tracing::trace!("Begin make_frigate_client function");
     let builder = reqwest::ClientBuilder::new();
+
     tracing::trace!("Builder created");
+
     let client = match &config.frigate_api_proxy {
         Some(proxy) => builder
             .proxy(reqwest::Proxy::all(proxy).context("Invalid proxy URL")?)
@@ -26,6 +29,7 @@ pub fn make_frigate_client(config: FrigateApiConfig) -> anyhow::Result<Box<dyn F
             .build()
             .context("Building Frigate API without proxy")?,
     };
+
     tracing::trace!("Building client done");
 
     let result = FrigateApiClient { client, config };

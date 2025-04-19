@@ -57,7 +57,7 @@ where
         }
     }
 
-    pub async fn run_f(&mut self) -> anyhow::Result<()> {
+    pub async fn run(&mut self) -> anyhow::Result<()> {
         let mqtt_config = MqttHandlerConfig::from(&self.config);
 
         let (data_sender, mut data_receiver) = tokio::sync::mpsc::unbounded_channel();
