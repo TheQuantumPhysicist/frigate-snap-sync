@@ -4,7 +4,7 @@ use file_sender::path_descriptor::PathDescriptor;
 use mqtt_handler::types::snapshot::Snapshot;
 use tokio::task::JoinHandle;
 
-use crate::config::PathDescriptors;
+use crate::{config::PathDescriptors, system::SLEEP_AFTER_ERROR};
 
 use super::{
     FileSenderMaker, MAX_ATTEMPT_COUNT,
@@ -33,7 +33,8 @@ impl<S: FileSenderMaker> SnapshotTask<S> {
 
     pub fn launch(self) -> JoinHandle<()> {
         tokio::task::spawn(async move {
-            let mut remaining_descriptors = self
+            // Take a copy of all the descriptors as the initial ones to use for the upload
+            let mut remaining_descriptors: Vec<Arc<PathDescriptor>> = self
                 .file_senders_path_descriptors
                 .path_descriptors
                 .as_ref()
@@ -63,7 +64,7 @@ impl<S: FileSenderMaker> SnapshotTask<S> {
 
                     match s.as_ref().mkdir_p(dir).and(
                         s.as_ref()
-                            .put_from_memory(self.snapshot.image.as_bytes(), &upload_path),
+                            .put_from_memory(&self.snapshot.image_bytes, &upload_path),
                     ) {
                         Ok(()) => {
                             tracing::info!(
@@ -83,6 +84,7 @@ impl<S: FileSenderMaker> SnapshotTask<S> {
 
                             // Since it failed, we try again later
                             remaining_descriptors.push(s.path_descriptor().clone());
+                            tokio::time::sleep(SLEEP_AFTER_ERROR).await;
                         }
                     }
                 }

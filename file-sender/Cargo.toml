@@ -10,6 +10,7 @@ anyhow = { workspace = true }
 libssh2-sys = { workspace = true }
 ssh2 = { workspace = true }
 thiserror = { workspace = true }
+tracing = { workspace = true }
 
 [lints]
 workspace = true

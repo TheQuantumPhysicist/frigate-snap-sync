@@ -78,7 +78,6 @@ async fn launch_eventloop(
 
         if let Ok(notification) = eventloop.poll().await {
             if let Event::Incoming(notification) = notification {
-                println!("Received = {notification:?}");
                 match notification {
                     Packet::Publish(publish) => {
                         if let Some(data) = CapturedPayloads::from_publish(
@@ -88,11 +87,9 @@ async fn launch_eventloop(
                         ) {
                             tracing::debug!("Found relevant data from topic: {}", publish.topic);
                             data_sender.send(data).expect("Sending data message failed");
+                        } else {
+                            tracing::trace!("Ignoring data with topic: {}", publish.topic);
                         }
-                        let payload_str = String::from_utf8(publish.payload.to_vec())
-                            .unwrap_or_else(|_e| "<Payload decode failed>".to_string());
-                        println!("Topic: {}", publish.topic);
-                        println!("Payload: {payload_str}");
                     }
                     Packet::Connect(_)
                     | Packet::ConnAck(_)

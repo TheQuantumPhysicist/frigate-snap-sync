@@ -2,6 +2,7 @@
 #[derive(Debug, Clone)]
 pub struct Snapshot {
     pub image: image::DynamicImage,
+    pub image_bytes: Vec<u8>, // a raw copy of the image, to save it to disk
     pub camera_label: String,
     pub object_name: String,
 }
@@ -26,6 +27,7 @@ impl Snapshot {
                 };
             Some(Self {
                 image: snapshot_image,
+                image_bytes: payload.to_vec(),
                 camera_label,
                 object_name,
             })

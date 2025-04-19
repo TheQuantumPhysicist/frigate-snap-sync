@@ -8,7 +8,7 @@ use crate::path_descriptor::PathDescriptor;
 // TODO: make this async by using blocking ops in tokio+
 // TODO: consider moving sftp to https://crates.io/crates/russh to use async
 
-pub trait StoreDestination {
+pub trait StoreDestination: Send + Sync {
     type Error;
 
     fn ls(&self, path: &Path) -> Result<Vec<PathBuf>, Self::Error>;

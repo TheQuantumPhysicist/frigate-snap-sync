@@ -16,6 +16,7 @@ use tokio::task::JoinHandle;
 use traits::{FileSenderMaker, FrigateApiMaker};
 
 const MAX_ATTEMPT_COUNT: u32 = 128;
+const SLEEP_AFTER_ERROR: std::time::Duration = std::time::Duration::from_secs(5);
 
 macro_rules! struct_name {
     ($t:ty) => {
@@ -62,86 +63,90 @@ where
 
         self.test_frigate_api_connection().await;
 
-        tokio::time::sleep(SLEEP_TIME_ON_API_ERROR).await;
-
         self.test_file_senders();
 
-        tokio::select! {
-            Some(data) = data_receiver.recv() => {
-                match data {
-                    CapturedPayloads::CameraRecordingsState(recordings_state) => {
-                        tracing::info!(
-                            "{STRUCT_NAME}: Updating recordings state of camera {} to {}",
-                            recordings_state.camera_label,
-                            recordings_state.state
-                        );
+        let stopped = false; // TODO: use a signal to trigger this, including mqtt_handler
 
-                        self.cameras_state.update_recordings_state(
-                            recordings_state.camera_label,
-                            recordings_state.state,
-                        );
-                    }
-                    CapturedPayloads::CameraSnapshotsState(snapshots_state) => {
-                        tracing::info!(
-                            "{STRUCT_NAME}: Updating snapshots state of camera {} to {}",
-                            snapshots_state.camera_label,
-                            snapshots_state.state
-                        );
+        #[allow(clippy::while_immutable_condition)]
+        while !stopped {
+            tokio::select! {
+                Some(data) = data_receiver.recv() => {
+                    match data {
+                        CapturedPayloads::CameraRecordingsState(recordings_state) => {
+                            tracing::info!(
+                                "{STRUCT_NAME}: Updating recordings state of camera `{}` to `{}`",
+                                recordings_state.camera_label,
+                                recordings_state.state
+                            );
 
-                        self.cameras_state.update_snapshots_state(
-                            snapshots_state.camera_label,
-                            snapshots_state.state,
-                        );
-                    }
-                    CapturedPayloads::Snapshot(snapshot) => {
-                        tracing::info!(
-                            "{STRUCT_NAME}: Received snapshot from camera: {}. Size: {}",
-                            snapshot.camera_label,
-                            snapshot.image.as_bytes().len()
-                        );
-
-                        if self
-                            .cameras_state
-                            .camera_snapshots_state(&snapshot.camera_label)
-                        {
-                            self.launch_snapshot_upload_task(snapshot);
-                        } else {
-                            tracing::debug!(
-                                "Ignoring snapshot from camera: {} - Snapshots are disabled in Frigate.",
-                                snapshot.camera_label
+                            self.cameras_state.update_recordings_state(
+                                recordings_state.camera_label,
+                                recordings_state.state,
                             );
                         }
-                    }
-                    CapturedPayloads::Reviews(review) => {
-                        tracing::info!(
-                            "{STRUCT_NAME}: Received review from camera: {}, with id: {}",
-                            review.camera_name(),
-                            review.id()
-                        );
+                        CapturedPayloads::CameraSnapshotsState(snapshots_state) => {
+                            tracing::info!(
+                                "{STRUCT_NAME}: Updating snapshots state of camera `{}` to `{}`",
+                                snapshots_state.camera_label,
+                                snapshots_state.state
+                            );
 
-                        if self
-                            .cameras_state
-                            .camera_recordings_state(review.camera_name())
-                        {
-                            // TODO: launch task to do the uploads of review
-
-                            // let api = match self.make_frigate_api() {
-                            //     Ok(a) => a,
-                            //     Err(e) => tracing::error!("Failed to connect"),
-                            // };
-                        } else {
-                            tracing::debug!(
-                                "Ignoring review from camera: {} - Recordings are disabled in Frigate.",
-                                review.camera_name()
+                            self.cameras_state.update_snapshots_state(
+                                snapshots_state.camera_label,
+                                snapshots_state.state,
                             );
                         }
-                    }
-                }
-            },
+                        CapturedPayloads::Snapshot(snapshot) => {
+                            tracing::info!(
+                                "{STRUCT_NAME}: Received snapshot from camera: `{}`. Size: `{}`",
+                                snapshot.camera_label,
+                                snapshot.image.as_bytes().len()
+                            );
 
-            Some(task_result) = self.tasks_handles.next() => {
-                if let Err(e) = task_result {
-                    tracing::error!("Task exited with error: {e}");
+                            if self
+                                .cameras_state
+                                .camera_snapshots_state(&snapshot.camera_label)
+                            {
+                                self.launch_snapshot_upload_task(snapshot);
+                            } else {
+                                tracing::debug!(
+                                    "Ignoring snapshot from camera: {} - Snapshots are disabled in Frigate.",
+                                    snapshot.camera_label
+                                );
+                            }
+                        }
+                        CapturedPayloads::Reviews(review) => {
+                            tracing::info!(
+                                "{STRUCT_NAME}: Received review from camera: {}, with id: {}",
+                                review.camera_name(),
+                                review.id()
+                            );
+
+                            if self
+                                .cameras_state
+                                .camera_recordings_state(review.camera_name())
+                            {
+                                // TODO: launch task to do the uploads of review
+
+                                // let api = match self.make_frigate_api() {
+                                //     Ok(a) => a,
+                                //     Err(e) => tracing::error!("Failed to connect"),
+                                // };
+                            } else {
+                                tracing::debug!(
+                                    "Ignoring review from camera: `{}` - Recordings are disabled in Frigate.",
+                                    review.camera_name()
+                                );
+                            }
+                        }
+                    }
+                },
+
+                Some(task_result) = self.tasks_handles.next() => {
+                    match task_result {
+                        Ok(()) => tracing::error!("Task joined successfully"),
+                        Err(e) => tracing::error!("Task joined with error: {e}"),
+                    }
                 }
             }
         }
@@ -182,6 +187,8 @@ where
                 tracing::error!(
                     "Error: failed to make test connection to the Frigate API. This could mean that the API is temporarily down, or that the address you used is wrong. The software will keep attempting to connect when needed. Error: {e}"
                 );
+
+                tokio::time::sleep(SLEEP_TIME_ON_API_ERROR).await;
             }
         }
     }

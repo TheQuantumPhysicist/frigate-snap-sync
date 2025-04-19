@@ -25,12 +25,14 @@ impl CamerasState {
     }
 
     pub fn update_recordings_state(&mut self, camera_name: impl Into<String>, value: bool) {
-        self.cameras_recordings_state
-            .insert(camera_name.into(), value);
+        let camera_name = camera_name.into();
+        tracing::debug!("Updating recordings state of camera `{camera_name}` to `{value}`");
+        self.cameras_recordings_state.insert(camera_name, value);
     }
 
     pub fn update_snapshots_state(&mut self, camera_name: impl Into<String>, value: bool) {
-        self.cameras_snapshots_state
-            .insert(camera_name.into(), value);
+        let camera_name = camera_name.into();
+        tracing::debug!("Updating snapshots state of camera `{camera_name}` to `{value}`");
+        self.cameras_snapshots_state.insert(camera_name, value);
     }
 }
