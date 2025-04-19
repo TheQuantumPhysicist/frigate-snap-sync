@@ -110,7 +110,7 @@ impl<F: AsyncFileSenderResult, S: FileSenderMaker<F>> SnapshotTask<S, F> {
                     remaining_descriptors.len(),
                     remaining_descriptors
                         .iter()
-                        .map(|v| v.to_string())
+                        .map(ToString::to_string)
                         .collect::<Vec<_>>()
                         .join(", ")
                 );
