@@ -30,6 +30,7 @@ impl MqttHandler {
         })
     }
 
+    /// returns a future that awaits exiting the inner task of mqtt
     pub async fn wait(&mut self) {
         self.task_handle
             .take()

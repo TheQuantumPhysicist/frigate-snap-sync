@@ -151,6 +151,8 @@ where
             }
         }
 
+        tracing::info!("Reached the end of {STRUCT_NAME} run call.");
+
         handler.wait().await;
 
         Ok(())
