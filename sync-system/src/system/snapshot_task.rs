@@ -38,7 +38,7 @@ impl<F: AsyncFileSenderResult, S: FileSenderMaker<F>> SnapshotTask<S, F> {
     async fn launch_inner(self) {
         {
             // Take a copy of all the descriptors as the initial ones to use for the upload
-            let remaining_descriptors = self
+            let mut remaining_descriptors = self
                 .file_senders_path_descriptors
                 .path_descriptors
                 .as_ref()
@@ -46,10 +46,8 @@ impl<F: AsyncFileSenderResult, S: FileSenderMaker<F>> SnapshotTask<S, F> {
 
             let file_sender_maker = self.file_sender_maker.clone();
 
-            let remaining_descriptors = tokio::sync::Mutex::new(remaining_descriptors);
-
             for attempt_number in 0..MAX_ATTEMPT_COUNT {
-                if remaining_descriptors.lock().await.is_empty() {
+                if remaining_descriptors.is_empty() {
                     // no +1 here because it finished in last iter
                     tracing::info!(
                         "Done uploading snapshot at attempt '{attempt_number}' for camera {}",
@@ -59,13 +57,12 @@ impl<F: AsyncFileSenderResult, S: FileSenderMaker<F>> SnapshotTask<S, F> {
                 }
 
                 let file_senders =
-                    Self::make_file_senders(file_sender_maker.clone(), &remaining_descriptors)
-                        .await;
+                    Self::make_file_senders(file_sender_maker.clone(), remaining_descriptors).await;
                 let (file_senders, path_descriptors) =
                     split_file_senders_and_descriptors(file_senders);
 
-                // The descriptors that we failed to open, are the ones we'll open in the next iteration
-                *remaining_descriptors.lock().await = path_descriptors;
+                // The descriptors that we failed to open, are the ones we'll attempt open again in the next iteration
+                remaining_descriptors = path_descriptors;
 
                 for s in &file_senders {
                     let date = chrono::Local::now().format("%Y-%m-%d").to_string();
@@ -94,20 +91,30 @@ impl<F: AsyncFileSenderResult, S: FileSenderMaker<F>> SnapshotTask<S, F> {
                             );
 
                             // Since it failed, we try again later
-                            remaining_descriptors
-                                .lock()
-                                .await
-                                .push(s.path_descriptor().clone());
+                            remaining_descriptors.push(s.path_descriptor().clone());
                             tokio::time::sleep(SLEEP_AFTER_ERROR).await;
                         }
                     }
                 }
             }
 
-            tracing::debug!(
-                "Reaching the end of snapshot upload code for camera {}",
-                self.snapshot.camera_label
-            );
+            if remaining_descriptors.is_empty() {
+                tracing::debug!(
+                    "Success: Reaching the end of snapshot upload code for camera {}",
+                    self.snapshot.camera_label
+                );
+            } else {
+                tracing::debug!(
+                    "Error: Reaching the end of snapshot upload code for camera {} with {} destination(s) having received the snapshot. These are: '{}'",
+                    self.snapshot.camera_label,
+                    remaining_descriptors.len(),
+                    remaining_descriptors
+                        .iter()
+                        .map(|v| v.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
+            }
         }
     }
 
@@ -117,10 +124,9 @@ impl<F: AsyncFileSenderResult, S: FileSenderMaker<F>> SnapshotTask<S, F> {
 
     async fn make_file_senders(
         file_sender_maker: Arc<S>,
-        remaining_path_descriptors: &tokio::sync::Mutex<Vec<Arc<PathDescriptor>>>,
+        remaining_path_descriptors: Vec<Arc<PathDescriptor>>,
     ) -> Vec<FileSenderOrPathDescriptor> {
-        let ds = remaining_path_descriptors.lock().await;
-        let senders = ds
+        let senders = remaining_path_descriptors
             .iter()
             .map(|d| (d.clone(), (file_sender_maker)(d.clone())));
 
