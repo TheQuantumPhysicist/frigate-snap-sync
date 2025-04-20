@@ -14,7 +14,7 @@ pub struct RecordingTaskHandler<F, S> {
     running_tasks: FuturesUnordered<JoinHandle<String>>,
     update_receiver: tokio::sync::mpsc::UnboundedReceiver<RecordingTaskHandlerUpdate>,
     stopped: bool,
-    tasks_communicators: HashMap<String, tokio::sync::mpsc::UnboundedSender<Box<Reviews>>>,
+    tasks_communicators: HashMap<String, tokio::sync::mpsc::UnboundedSender<Arc<Reviews>>>,
     frigate_api_config: Arc<FrigateApiConfig>,
     frigate_api_maker: Arc<F>,
     file_sender_maker: Arc<S>,
@@ -23,7 +23,7 @@ pub struct RecordingTaskHandler<F, S> {
 
 pub enum RecordingTaskHandlerUpdate {
     Stop,
-    Task(Box<Reviews>),
+    Task(Arc<Reviews>),
 }
 
 impl<F, S> RecordingTaskHandler<F, S>
@@ -78,7 +78,7 @@ where
         }
     }
 
-    async fn register_review_update(&mut self, review: Box<Reviews>) {
+    async fn register_review_update(&mut self, review: Arc<Reviews>) {
         let id = &review.id();
 
         if !self.tasks_communicators.contains_key(review.id()) {
@@ -96,7 +96,7 @@ where
             .expect("Invariant broken. Task communicators map could not send.");
     }
 
-    async fn launch_upload_task(&self) -> tokio::sync::mpsc::UnboundedSender<Box<Reviews>> {
+    async fn launch_upload_task(&self) -> tokio::sync::mpsc::UnboundedSender<Arc<Reviews>> {
         let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
         let handle = SingleRecordingUploadTask::new(
             receiver,

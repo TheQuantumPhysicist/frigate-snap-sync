@@ -14,9 +14,9 @@ use tokio::task::JoinHandle;
 #[must_use]
 pub struct SingleRecordingUploadTask<F, S> {
     // All messages received about this particular review
-    reviews: Vec<Reviews>,
+    reviews: Vec<Arc<Reviews>>,
     // Updates about the this review is received through this channel
-    receiver: tokio::sync::mpsc::UnboundedReceiver<Box<Reviews>>,
+    receiver: tokio::sync::mpsc::UnboundedReceiver<Arc<Reviews>>,
 
     frigate_api_config: Arc<FrigateApiConfig>,
     frigate_api_maker: Arc<F>,
@@ -30,7 +30,7 @@ where
     S: FileSenderMaker,
 {
     pub fn new(
-        receiver: tokio::sync::mpsc::UnboundedReceiver<Box<Reviews>>,
+        receiver: tokio::sync::mpsc::UnboundedReceiver<Arc<Reviews>>,
         frigate_api_config: Arc<FrigateApiConfig>,
         frigate_api_maker: Arc<F>,
         file_sender_maker: Arc<S>,
@@ -57,8 +57,8 @@ where
     }
 
     #[allow(clippy::unused_async)] // TODO: remove this
-    pub async fn on_received_review(&mut self, review: Box<Reviews>) {
-        self.reviews.push(review.as_ref().clone());
+    pub async fn on_received_review(&mut self, review: Arc<Reviews>) {
+        self.reviews.push(review);
 
         // let alternative_upload = false; // TODO: figure out the algo for this
 

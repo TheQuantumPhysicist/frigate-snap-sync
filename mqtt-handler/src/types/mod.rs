@@ -5,6 +5,8 @@ pub mod snapshots_state;
 
 mod utils;
 
+use std::sync::Arc;
+
 use crate::config::MqttHandlerConfig;
 use recordings_state::RecordingsState;
 use reviews::Reviews;
@@ -17,7 +19,7 @@ pub enum CapturedPayloads {
     CameraRecordingsState(RecordingsState),
     CameraSnapshotsState(SnapshotsState),
     Snapshot(Snapshot),
-    Reviews(Box<Reviews>),
+    Reviews(Arc<Reviews>),
 }
 
 impl CapturedPayloads {
