@@ -17,9 +17,6 @@ use std::{path::Path, sync::Arc};
 use tokio::task::JoinHandle;
 use traits::{FileSenderMaker, FrigateApiMaker};
 
-const MAX_ATTEMPT_COUNT: u32 = 128;
-const SLEEP_AFTER_ERROR: std::time::Duration = std::time::Duration::from_secs(5);
-
 macro_rules! struct_name {
     ($t:ty) => {
         stringify!($t)

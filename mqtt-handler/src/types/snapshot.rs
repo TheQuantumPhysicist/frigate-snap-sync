@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 #[must_use]
 #[derive(Debug, Clone)]
 pub struct Snapshot {
@@ -37,7 +39,7 @@ impl Snapshot {
     }
 
     #[must_use]
-    pub fn make_file_name(&self) -> String {
+    pub fn make_file_name(&self) -> PathBuf {
         let datetime = chrono::Local::now()
             .format("%Y-%m-%d_%H-%M-%S%z")
             .to_string();
@@ -45,5 +47,6 @@ impl Snapshot {
             "Snapshot-{}-{datetime}-{}.jpg",
             self.camera_label, self.object_name
         )
+        .into()
     }
 }

@@ -1,10 +1,11 @@
 use super::{
-    FileSenderMaker, MAX_ATTEMPT_COUNT,
-    common::{make_file_senders, split_file_senders_and_descriptors},
+    FileSenderMaker,
+    common::file_upload::{UploadableFile, upload_file},
 };
-use crate::{config::PathDescriptors, system::SLEEP_AFTER_ERROR};
+use crate::config::PathDescriptors;
+use file_sender::path_descriptor::PathDescriptor;
 use mqtt_handler::types::snapshot::Snapshot;
-use std::{path::Path, sync::Arc};
+use std::{path::PathBuf, sync::Arc};
 use tokio::task::JoinHandle;
 
 #[must_use]
@@ -27,90 +28,46 @@ impl<S: FileSenderMaker> SnapshotUploadTask<S> {
         }
     }
 
-    async fn launch_inner(self) {
-        {
-            // Take a copy of all the descriptors as the initial ones to use for the upload
-            let mut remaining_descriptors = self
-                .file_senders_path_descriptors
-                .path_descriptors
-                .as_ref()
-                .clone();
-
-            let file_sender_maker = self.file_sender_maker.clone();
-
-            for attempt_number in 0..MAX_ATTEMPT_COUNT {
-                if remaining_descriptors.is_empty() {
-                    // no +1 here because it finished in last iter
-                    tracing::info!(
-                        "Done uploading snapshot at attempt '{attempt_number}' for camera {}",
-                        self.snapshot.camera_label
-                    );
-                    break;
-                }
-
-                let file_senders =
-                    make_file_senders(&file_sender_maker, &remaining_descriptors).await;
-                let (file_senders, path_descriptors) =
-                    split_file_senders_and_descriptors(file_senders);
-
-                // The descriptors that we failed to open, are the ones we'll attempt open again in the next iteration
-                remaining_descriptors = path_descriptors;
-
-                for s in &file_senders {
-                    let date = chrono::Local::now().format("%Y-%m-%d").to_string();
-                    let dir = Path::new(&date);
-                    let upload_path = dir.join(self.snapshot.make_file_name());
-
-                    match s.as_ref().mkdir_p(dir).await.and(
-                        s.as_ref()
-                            .put_from_memory(&self.snapshot.image_bytes, &upload_path)
-                            .await,
-                    ) {
-                        Ok(()) => {
-                            tracing::info!(
-                                "Successfully uploaded snapshot {} to {} at attempt {}",
-                                upload_path.display(),
-                                s.path_descriptor(),
-                                attempt_number + 1, // Counting starts from 1
-                            );
-                        }
-                        Err(e) => {
-                            tracing::error!(
-                                "Error uploading snapshot {} to {}. Attempt number: {}. Error: {e}",
-                                upload_path.display(),
-                                s.path_descriptor(),
-                                attempt_number + 1, // Counting starts from 1
-                            );
-
-                            // Since it failed, we try again later
-                            remaining_descriptors.push(s.path_descriptor().clone());
-                            tokio::time::sleep(SLEEP_AFTER_ERROR).await;
-                        }
-                    }
-                }
-            }
-
-            if remaining_descriptors.is_empty() {
-                tracing::debug!(
-                    "Success: Reaching the end of snapshot upload code for camera {}",
-                    self.snapshot.camera_label
-                );
-            } else {
-                tracing::debug!(
-                    "Error: Reaching the end of snapshot upload code for camera {} with {} destination(s) having received the snapshot. These are: '{}'",
-                    self.snapshot.camera_label,
-                    remaining_descriptors.len(),
-                    remaining_descriptors
-                        .iter()
-                        .map(ToString::to_string)
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                );
-            }
-        }
+    async fn launch_inner(
+        file: impl UploadableFile,
+        path_descriptors: Vec<Arc<PathDescriptor>>,
+        file_sender_maker: Arc<S>,
+    ) {
+        upload_file(file, path_descriptors, file_sender_maker).await;
     }
 
     pub fn launch(self) -> JoinHandle<()> {
-        tokio::task::spawn(self.launch_inner())
+        let snapshot = self.snapshot;
+        let path_descriptors = self
+            .file_senders_path_descriptors
+            .path_descriptors
+            .as_ref()
+            .clone();
+        let file_sender_maker = self.file_sender_maker;
+
+        tokio::task::spawn(Self::launch_inner(
+            snapshot,
+            path_descriptors,
+            file_sender_maker,
+        ))
+    }
+}
+
+impl UploadableFile for Snapshot {
+    fn file_bytes(&self) -> &[u8] {
+        &self.image_bytes
+    }
+
+    fn file_name(&self) -> PathBuf {
+        self.make_file_name()
+    }
+
+    fn upload_dir(&self) -> PathBuf {
+        let date = chrono::Local::now().format("%Y-%m-%d").to_string();
+        PathBuf::from(date)
+    }
+
+    fn file_description(&self) -> String {
+        format!("Snapshot from camera {}", self.camera_label)
     }
 }

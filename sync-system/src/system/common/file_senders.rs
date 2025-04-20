@@ -1,6 +1,7 @@
-use super::traits::FileSenderMaker;
 use file_sender::{path_descriptor::PathDescriptor, traits::StoreDestination};
 use std::sync::Arc;
+
+use crate::system::traits::FileSenderMaker;
 
 pub enum FileSenderOrPathDescriptor {
     // Represent a successful establishment of the sender

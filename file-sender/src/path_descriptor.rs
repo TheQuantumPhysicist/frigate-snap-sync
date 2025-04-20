@@ -103,7 +103,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn file_descriptor_parser() {
+    fn path_descriptor_parser() {
         {
             let d = PathDescriptor::from_str("local:/home/user/something.txt").unwrap();
             assert_eq!(d, PathDescriptor::Local("/home/user/something.txt".into()));
@@ -146,7 +146,7 @@ mod tests {
     }
 
     #[test]
-    fn file_descriptor_parse_back_and_forth() {
+    fn path_descriptor_parse_back_and_forth() {
         {
             let s = "local:/home/user/something.txt";
             let d = PathDescriptor::from_str(s).unwrap();
