@@ -1,10 +1,11 @@
 mod task;
 
+use crate::config::PathDescriptors;
 use frigate_api_caller::config::FrigateApiConfig;
 use futures::{StreamExt, stream::FuturesUnordered};
 use mqtt_handler::types::reviews::Reviews;
 use std::{collections::HashMap, fmt::Display, sync::Arc};
-use task::RecordingUploadTask;
+use task::SingleRecordingUploadTask;
 use tokio::task::JoinHandle;
 
 use super::traits::{FileSenderMaker, FrigateApiMaker};
@@ -17,6 +18,7 @@ pub struct RecordingTaskHandler<F, S> {
     frigate_api_config: Arc<FrigateApiConfig>,
     frigate_api_maker: Arc<F>,
     file_sender_maker: Arc<S>,
+    path_descriptors: PathDescriptors,
 }
 
 pub enum RecordingTaskHandlerUpdate {
@@ -34,6 +36,7 @@ where
         frigate_api_config: Arc<FrigateApiConfig>,
         frigate_api_maker: Arc<F>,
         file_sender_maker: Arc<S>,
+        path_descriptors: PathDescriptors,
     ) -> Self {
         Self {
             running_tasks: FuturesUnordered::default(),
@@ -43,6 +46,7 @@ where
             frigate_api_config,
             frigate_api_maker,
             file_sender_maker,
+            path_descriptors,
         }
     }
 
@@ -94,11 +98,12 @@ where
 
     async fn launch_upload_task(&self) -> tokio::sync::mpsc::UnboundedSender<Box<Reviews>> {
         let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
-        let handle = RecordingUploadTask::new(
+        let handle = SingleRecordingUploadTask::new(
             receiver,
             self.frigate_api_config.clone(),
             self.frigate_api_maker.clone(),
             self.file_sender_maker.clone(),
+            self.path_descriptors.clone(),
         )
         .start()
         .await;

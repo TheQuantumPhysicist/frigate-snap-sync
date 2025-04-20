@@ -72,6 +72,7 @@ where
         let frigate_api_config = self.frigate_api_config.clone();
         let frigate_api_maker = self.frigate_api_maker.clone();
         let file_sender_maker = self.file_sender_maker.clone();
+        let path_descriptors = self.config.upload_destinations().clone();
 
         let (rec_updates_sender, rec_updates_receiver) = tokio::sync::mpsc::unbounded_channel();
         let rec_handler_task = tokio::task::spawn(async move {
@@ -80,6 +81,7 @@ where
                 frigate_api_config,
                 frigate_api_maker,
                 file_sender_maker,
+                path_descriptors,
             )
             .run()
             .await;
