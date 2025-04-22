@@ -4,7 +4,6 @@ use std::{path::PathBuf, sync::Arc};
 
 use super::file_senders::{make_file_senders, split_file_senders_and_descriptors};
 
-const MAX_ATTEMPT_COUNT: u32 = 128;
 const SLEEP_AFTER_ERROR: std::time::Duration = std::time::Duration::from_secs(5);
 
 pub trait UploadableFile {
@@ -15,14 +14,15 @@ pub trait UploadableFile {
 }
 
 pub async fn upload_file<S: FileSenderMaker>(
-    file: impl UploadableFile,
+    file: &impl UploadableFile,
     path_descriptors: Vec<Arc<PathDescriptor>>,
     file_sender_maker: Arc<S>,
-) {
+    max_attempt_count: u32,
+) -> anyhow::Result<()> {
     // Take a copy of all the descriptors as the initial ones to use for the upload
     let mut remaining_descriptors = path_descriptors;
 
-    for attempt_number in 0..MAX_ATTEMPT_COUNT {
+    for attempt_number in 0..max_attempt_count {
         if remaining_descriptors.is_empty() {
             // no +1 here because it finished in last iter
             tracing::info!(
@@ -76,8 +76,10 @@ pub async fn upload_file<S: FileSenderMaker>(
             "Success: Reaching the end of file upload code for camera {}",
             file.file_description()
         );
+
+        Ok(())
     } else {
-        tracing::debug!(
+        let error = format!(
             "Error: Reaching the end of file upload code for file `{}` with {} destination(s) having received the file. These are: '{}'",
             file.file_description(),
             remaining_descriptors.len(),
@@ -87,5 +89,7 @@ pub async fn upload_file<S: FileSenderMaker>(
                 .collect::<Vec<_>>()
                 .join(", ")
         );
+
+        Err(anyhow::anyhow!("{error}"))
     }
 }

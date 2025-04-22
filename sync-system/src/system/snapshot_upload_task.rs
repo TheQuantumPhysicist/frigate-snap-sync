@@ -8,6 +8,8 @@ use mqtt_handler::types::snapshot::Snapshot;
 use std::{path::PathBuf, sync::Arc};
 use tokio::task::JoinHandle;
 
+const MAX_ATTEMPT_COUNT: u32 = 128;
+
 #[must_use]
 pub struct SnapshotUploadTask<S> {
     snapshot: Snapshot,
@@ -33,7 +35,14 @@ impl<S: FileSenderMaker> SnapshotUploadTask<S> {
         path_descriptors: Vec<Arc<PathDescriptor>>,
         file_sender_maker: Arc<S>,
     ) {
-        upload_file(file, path_descriptors, file_sender_maker).await;
+        let _ = upload_file(
+            &file,
+            path_descriptors,
+            file_sender_maker,
+            MAX_ATTEMPT_COUNT,
+        )
+        .await
+        .inspect_err(|e| tracing::error!("{e}"));
     }
 
     pub fn launch(self) -> JoinHandle<()> {

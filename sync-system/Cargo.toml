@@ -8,7 +8,9 @@ license.workspace = true
 [dependencies]
 anyhow = { workspace = true }
 chrono = { workspace = true }
+ctrlc = { workspace = true }
 futures = { workspace = true }
+humantime = { workspace = true }
 itertools = { workspace = true }
 serde_yml = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

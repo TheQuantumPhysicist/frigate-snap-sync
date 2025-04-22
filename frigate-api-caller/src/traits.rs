@@ -2,7 +2,7 @@ use crate::json::review::Review;
 use async_trait::async_trait;
 
 #[async_trait]
-pub trait FrigateApi {
+pub trait FrigateApi: Send + Sync {
     /// Attempt a call to the API that only tests whether the API is healthy
     #[must_use]
     async fn test_call(&self) -> anyhow::Result<()>;

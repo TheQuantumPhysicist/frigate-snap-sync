@@ -18,7 +18,7 @@ pub struct SftpImpl {
 }
 
 impl SftpImpl {
-    #[allow(clippy::unused_async)] // TODO: remove this when the impl is async
+    #[allow(clippy::unused_async)]
     pub fn new_with_public_key(
         path_descriptor: Arc<PathDescriptor>,
         host: &str,

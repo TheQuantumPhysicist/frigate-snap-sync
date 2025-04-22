@@ -6,15 +6,15 @@ pub mod traits;
 use crate::{config::VideoSyncConfig, state::CamerasState};
 use file_sender::{path_descriptor::PathDescriptor, traits::StoreDestination};
 use frigate_api_caller::{config::FrigateApiConfig, traits::FrigateApi};
-use futures::{StreamExt, stream::FuturesUnordered};
+use futures::{FutureExt, StreamExt, stream::FuturesUnordered};
 use mqtt_handler::{
     config::MqttHandlerConfig,
     types::{CapturedPayloads, snapshot::Snapshot},
 };
-use recording_upload_task::{RecordingTaskHandler, RecordingTaskHandlerUpdate};
+use recording_upload_task::{RecordingTaskHandler, RecordingsUploadTaskHandlerUpdate};
 use snapshot_upload_task::SnapshotUploadTask;
 use std::{path::Path, sync::Arc};
-use tokio::task::JoinHandle;
+use tokio::{sync::mpsc::UnboundedReceiver, task::JoinHandle};
 use traits::{FileSenderMaker, FrigateApiMaker};
 
 macro_rules! struct_name {
@@ -34,6 +34,7 @@ pub struct SyncSystem<F, S> {
     frigate_api_maker: Arc<F>,
     file_sender_maker: Arc<S>,
     tasks_handles: FuturesUnordered<JoinHandle<()>>,
+    stop_receiver: Option<UnboundedReceiver<()>>,
 }
 
 impl<F, S> SyncSystem<F, S>
@@ -41,7 +42,12 @@ where
     F: FrigateApiMaker,
     S: FileSenderMaker,
 {
-    pub fn new(config: VideoSyncConfig, frigate_api_maker: F, file_sender_maker: S) -> Self {
+    pub fn new(
+        config: VideoSyncConfig,
+        frigate_api_maker: F,
+        file_sender_maker: S,
+        stop_receiver: Option<UnboundedReceiver<()>>,
+    ) -> Self {
         let frigate_api_config = FrigateApiConfig::from(&config);
         Self {
             cameras_state: CamerasState::default(),
@@ -50,6 +56,7 @@ where
             frigate_api_maker: Arc::new(frigate_api_maker),
             tasks_handles: FuturesUnordered::default(),
             file_sender_maker: Arc::new(file_sender_maker),
+            stop_receiver,
         }
     }
 
@@ -63,8 +70,6 @@ where
         self.test_frigate_api_connection().await;
 
         self.test_file_senders().await;
-
-        let stopped = false; // TODO: use a signal to trigger this, including mqtt_handler
 
         let frigate_api_config = self.frigate_api_config.clone();
         let frigate_api_maker = self.frigate_api_maker.clone();
@@ -84,12 +89,15 @@ where
             .await;
         });
 
-        #[allow(clippy::while_immutable_condition)]
-        while !stopped {
+        loop {
+            let stop_receiver = match self.stop_receiver.as_mut() {
+                Some(receiver) => receiver.recv().boxed(),
+                None => futures::future::pending().boxed(),
+            };
+
             tokio::select! {
                 Some(data) = mqtt_data_receiver.recv() => {
-                    // TODO: Move this match to a function
-                    self.on_mqtt_data_receive(data, &rec_updates_sender);
+                    self.on_mqtt_data_received(data, &rec_updates_sender);
                 },
 
                 Some(task_result) = self.tasks_handles.next() => {
@@ -98,28 +106,34 @@ where
                         Err(e) => tracing::error!("Task joined with error: {e}"),
                     }
                 }
+
+                Some(()) = stop_receiver => {
+                    tracing::info!("Received stop signal to stop {STRUCT_NAME}.");
+                    break;
+                }
             }
         }
 
-        tracing::info!("Reached the end of {STRUCT_NAME} run call.");
+        tracing::info!("Reached the end of {STRUCT_NAME} event loop.");
 
+        mqtt_handler.stop();
         mqtt_handler.wait().await;
 
         rec_updates_sender
-            .send(RecordingTaskHandlerUpdate::Stop)
+            .send(RecordingsUploadTaskHandlerUpdate::Stop)
             .expect("Sending stop signal for recordings handler failed");
         match rec_handler_task.await {
-            Ok(()) => tracing::error!("Joining recordings handler task completed successfully."),
+            Ok(()) => tracing::info!("Joining recordings handler task completed successfully."),
             Err(e) => tracing::error!("Failed to join recordings handler task: {e}"),
         }
 
         Ok(())
     }
 
-    fn on_mqtt_data_receive(
+    fn on_mqtt_data_received(
         &mut self,
         data: CapturedPayloads,
-        rec_updates_sender: &tokio::sync::mpsc::UnboundedSender<RecordingTaskHandlerUpdate>,
+        rec_updates_sender: &tokio::sync::mpsc::UnboundedSender<RecordingsUploadTaskHandlerUpdate>,
     ) {
         match data {
             CapturedPayloads::CameraRecordingsState(recordings_state) => {
@@ -175,11 +189,17 @@ where
                     let camera_name = review.camera_name().to_string();
                     let id = review.id().to_string();
                     tracing::debug!("Sending review for camera {camera_name} with id {id}");
-                    match rec_updates_sender.send(RecordingTaskHandlerUpdate::Task(review)) {
+
+                    let send_res =
+                        rec_updates_sender.send(RecordingsUploadTaskHandlerUpdate::Task(review));
+
+                    match send_res {
                         Ok(()) => tracing::trace!(
                             "Sent new task successfully for camera {camera_name} with id {id}"
                         ),
-                        Err(_) => todo!(),
+                        Err(e) => tracing::error!(
+                            "CRITICAL: Failed to send message to recording upload handler: {e}"
+                        ),
                     }
                 } else {
                     tracing::debug!(

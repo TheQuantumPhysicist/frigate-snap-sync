@@ -10,18 +10,26 @@ use tokio::task::JoinHandle;
 
 use super::traits::{FileSenderMaker, FrigateApiMaker};
 
+/// All recordings uploads are handled in this struct.
 pub struct RecordingTaskHandler<F, S> {
+    /// Commands that control this struct
+    command_receiver: tokio::sync::mpsc::UnboundedReceiver<RecordingsUploadTaskHandlerUpdate>,
+    /// All the upload tasks futures running are here and are to be eventually joined
     running_tasks: FuturesUnordered<JoinHandle<String>>,
-    update_receiver: tokio::sync::mpsc::UnboundedReceiver<RecordingTaskHandlerUpdate>,
-    stopped: bool,
+    /// Tasks that are running have review ids that are stored here, with a sender
+    /// that can send them update objects from Frigate, coming from mqtt
     tasks_communicators: HashMap<String, tokio::sync::mpsc::UnboundedSender<Arc<Reviews>>>,
+
     frigate_api_config: Arc<FrigateApiConfig>,
     frigate_api_maker: Arc<F>,
     file_sender_maker: Arc<S>,
     path_descriptors: PathDescriptors,
+
+    /// Stops the event loop
+    stopped: bool,
 }
 
-pub enum RecordingTaskHandlerUpdate {
+pub enum RecordingsUploadTaskHandlerUpdate {
     Stop,
     Task(Arc<Reviews>),
 }
@@ -32,7 +40,7 @@ where
     S: FileSenderMaker,
 {
     pub fn new(
-        update_receiver: tokio::sync::mpsc::UnboundedReceiver<RecordingTaskHandlerUpdate>,
+        update_receiver: tokio::sync::mpsc::UnboundedReceiver<RecordingsUploadTaskHandlerUpdate>,
         frigate_api_config: Arc<FrigateApiConfig>,
         frigate_api_maker: Arc<F>,
         file_sender_maker: Arc<S>,
@@ -40,7 +48,7 @@ where
     ) -> Self {
         Self {
             running_tasks: FuturesUnordered::default(),
-            update_receiver,
+            command_receiver: update_receiver,
             stopped: false,
             tasks_communicators: HashMap::default(),
             frigate_api_config,
@@ -53,16 +61,16 @@ where
     pub async fn run(mut self) {
         loop {
             tokio::select! {
-                Some(update) = self.update_receiver.recv() => {
+                Some(update) = self.command_receiver.recv() => {
                     match update {
-                        RecordingTaskHandlerUpdate::Stop => {
+                        RecordingsUploadTaskHandlerUpdate::Stop => {
                             self.stopped = true;
                             if self.running_tasks.is_empty() {
                                 break;
                             }
                         }
-                        RecordingTaskHandlerUpdate::Task(review) => {
-                            self.register_review_update(review).await;
+                        RecordingsUploadTaskHandlerUpdate::Task(review) => {
+                            self.register_review_update(review);
                         }
                     }
                 }
@@ -78,12 +86,12 @@ where
         }
     }
 
-    async fn register_review_update(&mut self, review: Arc<Reviews>) {
-        let id = &review.id();
+    fn register_review_update(&mut self, review: Arc<Reviews>) {
+        let id = review.id().to_string();
 
         if !self.tasks_communicators.contains_key(review.id()) {
-            let sender = self.launch_upload_task().await;
-            self.tasks_communicators.insert((*id).to_string(), sender);
+            let updates_sender = self.launch_upload_task(review.clone());
+            self.tasks_communicators.insert(id, updates_sender);
         }
 
         let sender = self
@@ -96,18 +104,27 @@ where
             .expect("Invariant broken. Task communicators map could not send.");
     }
 
-    async fn launch_upload_task(&self) -> tokio::sync::mpsc::UnboundedSender<Arc<Reviews>> {
+    fn launch_upload_task(
+        &self,
+        review: Arc<Reviews>,
+    ) -> tokio::sync::mpsc::UnboundedSender<Arc<Reviews>> {
         let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
-        let handle = SingleRecordingUploadTask::new(
-            receiver,
-            self.frigate_api_config.clone(),
-            self.frigate_api_maker.clone(),
-            self.file_sender_maker.clone(),
-            self.path_descriptors.clone(),
-        )
-        .start()
-        .await;
+        let handle = tokio::task::spawn(
+            SingleRecordingUploadTask::new(
+                review,
+                receiver,
+                self.frigate_api_config.clone(),
+                self.frigate_api_maker.clone(),
+                self.file_sender_maker.clone(),
+                self.path_descriptors.clone(),
+                None,
+                None,
+            )
+            .start(),
+        );
+
         self.running_tasks.push(handle);
+
         sender
     }
 

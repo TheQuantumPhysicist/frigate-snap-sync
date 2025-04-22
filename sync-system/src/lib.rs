@@ -41,7 +41,22 @@ pub async fn run() -> anyhow::Result<()> {
     let frigate_api_maker = move |cfg: &FrigateApiConfig| make_frigate_client(cfg.clone());
     let file_sender_maker = move |pd: &Arc<PathDescriptor>| make_store(pd);
 
-    let mut sync_sys = SyncSystem::new(config, frigate_api_maker, file_sender_maker);
+    let (stop_sender, stop_receiver) = tokio::sync::mpsc::unbounded_channel();
+
+    ctrlc::set_handler(move || {
+        tracing::info!("Sending a terminate (Ctrl+C) signal");
+        stop_sender
+            .send(())
+            .expect("Could not send signal on channel.");
+    })
+    .expect("Error setting Ctrl+C handler");
+
+    let mut sync_sys = SyncSystem::new(
+        config,
+        frigate_api_maker,
+        file_sender_maker,
+        Some(stop_receiver),
+    );
 
     sync_sys.run().await?;
 
