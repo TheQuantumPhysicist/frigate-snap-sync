@@ -60,9 +60,10 @@ fn make_sftp_store(
     Ok(Box::new(sftp))
 }
 
+#[must_use]
 pub fn make_inmemory_filesystem() -> Box<dyn StoreDestination<Error = anyhow::Error>> {
     Box::new(InMemoryFileSystem::new(Arc::new(PathDescriptor::Local(
-        "".to_string().into(),
+        String::new().into(),
     ))))
 }
 

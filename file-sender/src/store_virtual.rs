@@ -54,9 +54,7 @@ impl StoreDestination for InMemoryFileSystem {
     async fn mkdir_p(&self, path: &Path) -> Result<(), Self::Error> {
         let path = path_as_str(path);
         let path = self.root.join(path).context("path join failed")?;
-        path.create_dir_all()
-            .context("create_dir_all failed")
-            .map(Into::into)
+        path.create_dir_all().context("create_dir_all failed")
     }
 
     async fn put(&self, from: &Path, to: &Path) -> Result<(), Self::Error> {
