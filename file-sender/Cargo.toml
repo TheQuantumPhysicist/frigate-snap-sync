@@ -14,8 +14,11 @@ async-trait = { workspace = true }
 libssh2-sys = { workspace = true }
 ssh2 = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["full"]}
 tracing = { workspace = true }
+vfs = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
+rstest = { workspace = true }
+test-utils = { workspace = true }

@@ -91,6 +91,13 @@ impl StoreDestination for LocalStore {
         Ok(fs::write(to_path, from).await?)
     }
 
+    async fn get_to_memory(&self, from: &Path) -> Result<Vec<u8>, Self::Error> {
+        let from_path = self.resolve(&from);
+        tracing::debug!("Calling 'get_to_memory' on path: `{}`", from_path.display());
+        let result = std::fs::read(from_path)?;
+        Ok(result)
+    }
+
     async fn dir_exists(&self, path: &Path) -> Result<bool, Self::Error> {
         let full_path = self.resolve(&path);
         tracing::debug!("Calling 'dir_exists' on path: `{}`", full_path.display());
@@ -106,5 +113,3 @@ impl StoreDestination for LocalStore {
         &self.path_descriptor
     }
 }
-
-// TODO: test with some temp dir

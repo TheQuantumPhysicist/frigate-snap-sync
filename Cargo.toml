@@ -61,6 +61,7 @@ reqwest = "0.12"
 rstest = "0.25"
 rumqttc = "0.24.0"
 ssh2 = "0.9"
+vfs = "0.12"
 
 
 file-sender = { path = "file-sender" }

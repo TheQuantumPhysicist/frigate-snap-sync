@@ -2,7 +2,7 @@ use crate::{path_descriptor::PathDescriptor, traits::StoreDestination};
 use async_trait::async_trait;
 use ssh2::{self, ErrorCode, OpenFlags, Session};
 use std::{
-    io::{BufRead, BufReader},
+    io::{BufRead, BufReader, Read},
     net::TcpStream,
     path::{Path, PathBuf},
     sync::Arc,
@@ -139,6 +139,20 @@ impl SftpImpl {
         Ok(())
     }
 
+    pub fn get_to_memory<Q: AsRef<Path>>(&self, from: Q) -> Result<Vec<u8>, SftpError> {
+        let mut dest_file = self
+            .sftp
+            .open(from.as_ref())
+            .map_err(SftpError::OpenDestinationFileToReadFailed)?;
+
+        let mut result = Vec::new();
+        dest_file
+            .read_to_end(&mut result)
+            .map_err(SftpError::ReadRemoteFileError)?;
+
+        Ok(result)
+    }
+
     fn fill_buffer<S: std::io::Read>(
         buffer_queue: &mut Vec<u8>,
         reader: &mut std::io::BufReader<S>,
@@ -214,6 +228,8 @@ pub enum SftpError {
     MkdirFailed(ssh2::Error),
     #[error("Open file to write failed {0}")]
     OpenDestinationFileToWriteFailed(ssh2::Error),
+    #[error("Open file to read failed {0}")]
+    OpenDestinationFileToReadFailed(ssh2::Error),
     #[error("Could not find source file for put {0}")]
     SourceFileNotFound(PathBuf),
     #[error("Destination path not found {0}")]
@@ -226,6 +242,8 @@ pub enum SftpError {
     DirExistsCheckError(ssh2::Error),
     #[error("Read source file buffer error {0}")]
     ReadBufferError(std::io::Error),
+    #[error("Read remote file error {0}")]
+    ReadRemoteFileError(std::io::Error),
 }
 
 fn get_all_parents_for_mkdir_p<P: AsRef<Path>>(path: P) -> Vec<PathBuf> {
@@ -263,6 +281,10 @@ impl StoreDestination for SftpImpl {
 
     async fn put_from_memory(&self, from: &[u8], to: &Path) -> Result<(), Self::Error> {
         self.put_from_memory(from, to).map_err(Into::into)
+    }
+
+    async fn get_to_memory(&self, from: &Path) -> Result<Vec<u8>, Self::Error> {
+        self.get_to_memory(from).map_err(Into::into)
     }
 
     async fn mkdir_p(&self, path: &Path) -> Result<(), Self::Error> {

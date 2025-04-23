@@ -1,6 +1,7 @@
 pub mod path_descriptor;
 mod store_local;
 mod store_sftp;
+mod store_virtual;
 pub mod traits;
 
 use path_descriptor::PathDescriptor;
@@ -10,6 +11,7 @@ use std::{
 };
 use store_local::LocalStore;
 use store_sftp::SftpImpl;
+use store_virtual::InMemoryFileSystem;
 use traits::StoreDestination;
 
 pub fn make_store(
@@ -57,3 +59,12 @@ fn make_sftp_store(
 
     Ok(Box::new(sftp))
 }
+
+pub fn make_inmemory_filesystem() -> Box<dyn StoreDestination<Error = anyhow::Error>> {
+    Box::new(InMemoryFileSystem::new(Arc::new(PathDescriptor::Local(
+        "".to_string().into(),
+    ))))
+}
+
+#[cfg(test)]
+mod tests;
