@@ -7,6 +7,7 @@ use file_sender::path_descriptor::PathDescriptor;
 use mqtt_handler::types::snapshot::Snapshot;
 use std::{path::PathBuf, sync::Arc};
 use tokio::task::JoinHandle;
+use utils::time::Time;
 
 const MAX_ATTEMPT_COUNT: u32 = 128;
 
@@ -72,7 +73,7 @@ impl UploadableFile for Snapshot {
     }
 
     fn upload_dir(&self) -> PathBuf {
-        let date = chrono::Local::now().format("%Y-%m-%d").to_string();
+        let date = Time::local_time_in_dir_foramt();
         PathBuf::from(date)
     }
 

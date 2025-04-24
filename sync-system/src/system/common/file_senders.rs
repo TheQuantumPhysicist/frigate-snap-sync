@@ -5,13 +5,13 @@ use crate::system::traits::FileSenderMaker;
 
 pub enum FileSenderOrPathDescriptor {
     // Represent a successful establishment of the sender
-    FileSender(Box<dyn StoreDestination<Error = anyhow::Error>>),
+    FileSender(Arc<dyn StoreDestination<Error = anyhow::Error>>),
     // Represent a still pending establishment of the sender
     PathDescriptor(Arc<PathDescriptor>),
 }
 
-impl From<Box<dyn StoreDestination<Error = anyhow::Error>>> for FileSenderOrPathDescriptor {
-    fn from(sender: Box<dyn StoreDestination<Error = anyhow::Error>>) -> Self {
+impl From<Arc<dyn StoreDestination<Error = anyhow::Error>>> for FileSenderOrPathDescriptor {
+    fn from(sender: Arc<dyn StoreDestination<Error = anyhow::Error>>) -> Self {
         FileSenderOrPathDescriptor::FileSender(sender)
     }
 }
@@ -26,7 +26,7 @@ impl From<Arc<PathDescriptor>> for FileSenderOrPathDescriptor {
 pub fn split_file_senders_and_descriptors(
     iter: impl IntoIterator<Item = FileSenderOrPathDescriptor>,
 ) -> (
-    Vec<Box<dyn StoreDestination<Error = anyhow::Error>>>,
+    Vec<Arc<dyn StoreDestination<Error = anyhow::Error>>>,
     Vec<Arc<PathDescriptor>>,
 ) {
     let mut d = Vec::new();

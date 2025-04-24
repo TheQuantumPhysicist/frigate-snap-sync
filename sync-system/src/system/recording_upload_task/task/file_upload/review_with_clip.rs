@@ -1,6 +1,7 @@
 use crate::system::common::file_upload::UploadableFile;
 use mqtt_handler::types::reviews::ReviewProps;
 use std::{path::PathBuf, sync::Arc};
+use utils::time::Time;
 
 #[derive(Debug, Clone)]
 pub struct ReviewWithClip {
@@ -41,7 +42,7 @@ impl UploadableFile for ReviewWithClip {
     }
 
     fn upload_dir(&self) -> std::path::PathBuf {
-        let date = chrono::Local::now().format("%Y-%m-%d").to_string();
+        let date = Time::local_time_in_dir_foramt();
         PathBuf::from(date)
     }
 

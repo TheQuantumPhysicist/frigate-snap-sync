@@ -3,8 +3,8 @@ use frigate_api_caller::json::review::Review;
 use frigate_api_caller::traits::FrigateApi;
 
 #[must_use]
-pub fn make_frigate_client_mock() -> Box<dyn FrigateApi> {
-    Box::new(MockFrigateApi::new())
+pub fn make_frigate_client_mock() -> MockFrigateApi {
+    MockFrigateApi::new()
 }
 
 mockall::mock! {

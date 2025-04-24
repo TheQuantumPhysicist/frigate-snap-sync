@@ -119,6 +119,11 @@ impl Time {
     pub fn as_unix_timestamp_f64(&self) -> f64 {
         self.time.as_secs_f64()
     }
+
+    #[must_use]
+    pub fn local_time_in_dir_foramt() -> String {
+        chrono::Local::now().format("%Y-%m-%d").to_string()
+    }
 }
 
 impl std::ops::Add<Duration> for Time {

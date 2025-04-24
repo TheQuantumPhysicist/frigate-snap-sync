@@ -5,8 +5,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 #[must_use]
-pub fn make_store_mock() -> Box<dyn StoreDestination<Error = anyhow::Error>> {
-    Box::new(MockStoreDest::new())
+pub fn make_store_mock() -> MockStoreDest {
+    MockStoreDest::new()
 }
 
 mockall::mock! {

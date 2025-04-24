@@ -122,7 +122,7 @@ where
         }
     }
 
-    pub fn make_frigate_api(&self) -> anyhow::Result<Box<dyn FrigateApi>> {
+    pub fn make_frigate_api(&self) -> anyhow::Result<Arc<dyn FrigateApi>> {
         (self.frigate_api_maker)(&self.frigate_api_config)
     }
 }
@@ -134,4 +134,105 @@ pub enum ReviewUploadState {
     GettingVideoFromAPI,
     UploadToStore(ReviewWithClip),
     Done,
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use crate::config::PathDescriptors;
+
+    use super::ReviewUpload;
+    use file_sender::{path_descriptor::PathDescriptor, traits::StoreDestination};
+    use frigate_api_caller::{config::FrigateApiConfig, traits::FrigateApi};
+    use mocks::{frigate_api::make_frigate_client_mock, store_dest::make_store_mock};
+    use mqtt_handler::types::reviews::{ReviewProps, payload};
+
+    #[derive(Debug)]
+    struct TestReviewData {
+        camera_name: String,
+        start_time: f64,
+        end_time: f64,
+        id: String,
+        type_field: payload::TypeField,
+    }
+
+    impl ReviewProps for TestReviewData {
+        fn camera_name(&self) -> &str {
+            &self.camera_name
+        }
+
+        fn id(&self) -> &str {
+            &self.id
+        }
+
+        fn start_time(&self) -> f64 {
+            self.start_time
+        }
+
+        fn end_time(&self) -> Option<f64> {
+            Some(self.end_time)
+        }
+
+        fn type_field(&self) -> payload::TypeField {
+            self.type_field
+        }
+    }
+
+    #[tokio::test]
+    async fn basic_upload() {
+        let mut frigate_api_mock = make_frigate_client_mock();
+
+        // Prepare the API mock
+        frigate_api_mock
+            .expect_recording_clip()
+            .returning(|_, _, _| Ok(Some(b"Hello world!".to_vec())));
+
+        // Prepare the file sender mock
+        let mut file_store_mock = make_store_mock();
+        file_store_mock.expect_init().returning(|| Ok(()));
+        file_store_mock.expect_mkdir_p().returning(|_| Ok(()));
+        file_store_mock
+            .expect_put_from_memory()
+            .returning(|_, _| Ok(()));
+
+        //
+        let frigate_api_mock: Arc<dyn FrigateApi> = Arc::new(frigate_api_mock);
+        let file_store_mock: Arc<dyn StoreDestination<Error = anyhow::Error>> =
+            Arc::new(file_store_mock);
+
+        let frigate_api_maker = Arc::new(move |_: &FrigateApiConfig| Ok(frigate_api_mock.clone()));
+        let file_sender_maker =
+            Arc::new(move |_: &Arc<PathDescriptor>| Ok(file_store_mock.clone()));
+
+        let frigate_config = FrigateApiConfig {
+            frigate_api_base_url: "http://someurl.com:5000/".to_string(),
+            frigate_api_proxy: None,
+        };
+
+        let path_descriptors = PathDescriptors {
+            path_descriptors: Arc::new(vec![Arc::new(PathDescriptor::Local(
+                "/home/data/".to_string().into(),
+            ))]),
+        };
+
+        let review = TestReviewData {
+            camera_name: "MyCamera".to_string(),
+            start_time: 950.,
+            end_time: 1000.,
+            id: "id-abcdefg".to_string(),
+            type_field: payload::TypeField::New,
+        };
+
+        let mut review_upload = ReviewUpload::new(
+            Arc::new(review),
+            false,
+            Arc::new(frigate_config),
+            frigate_api_maker,
+            file_sender_maker,
+            path_descriptors,
+        );
+
+        review_upload.run().await.unwrap();
+    }
 }

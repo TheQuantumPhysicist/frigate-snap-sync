@@ -211,7 +211,7 @@ where
         }
     }
 
-    pub fn make_frigate_api(&self) -> anyhow::Result<Box<dyn FrigateApi>> {
+    pub fn make_frigate_api(&self) -> anyhow::Result<Arc<dyn FrigateApi>> {
         (self.frigate_api_maker)(&self.frigate_api_config)
     }
 
@@ -220,7 +220,7 @@ where
         &self,
     ) -> Vec<(
         Arc<PathDescriptor>,
-        anyhow::Result<Box<dyn StoreDestination<Error = anyhow::Error>>>,
+        anyhow::Result<Arc<dyn StoreDestination<Error = anyhow::Error>>>,
     )> {
         self.config
             .upload_destinations()

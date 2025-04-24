@@ -16,7 +16,7 @@ use traits::StoreDestination;
 
 pub fn make_store(
     path_descriptor: &Arc<PathDescriptor>,
-) -> anyhow::Result<Box<dyn StoreDestination<Error = anyhow::Error>>> {
+) -> anyhow::Result<Arc<dyn StoreDestination<Error = anyhow::Error>>> {
     match path_descriptor.as_ref() {
         PathDescriptor::Local(p) => Ok(make_local_store(path_descriptor.clone(), p)),
         PathDescriptor::Sftp {
@@ -37,9 +37,9 @@ pub fn make_store(
 fn make_local_store(
     path_descriptor: Arc<PathDescriptor>,
     destination_dir: impl AsRef<Path>,
-) -> Box<dyn StoreDestination<Error = anyhow::Error>> {
+) -> Arc<dyn StoreDestination<Error = anyhow::Error>> {
     let store = LocalStore::new(path_descriptor, destination_dir);
-    Box::new(store)
+    Arc::new(store)
 }
 
 fn make_sftp_store(
@@ -48,7 +48,7 @@ fn make_sftp_store(
     username: &str,
     priv_key_path: impl AsRef<Path>,
     destination_path: impl Into<PathBuf>,
-) -> anyhow::Result<Box<dyn StoreDestination<Error = anyhow::Error>>> {
+) -> anyhow::Result<Arc<dyn StoreDestination<Error = anyhow::Error>>> {
     let sftp = SftpImpl::new_with_public_key(
         path_descriptor,
         host,
@@ -57,12 +57,12 @@ fn make_sftp_store(
         destination_path,
     )?;
 
-    Ok(Box::new(sftp))
+    Ok(Arc::new(sftp))
 }
 
 #[must_use]
-pub fn make_inmemory_filesystem() -> Box<dyn StoreDestination<Error = anyhow::Error>> {
-    Box::new(InMemoryFileSystem::new(Arc::new(PathDescriptor::Local(
+pub fn make_inmemory_filesystem() -> Arc<dyn StoreDestination<Error = anyhow::Error>> {
+    Arc::new(InMemoryFileSystem::new(Arc::new(PathDescriptor::Local(
         String::new().into(),
     ))))
 }

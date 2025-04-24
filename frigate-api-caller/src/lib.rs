@@ -8,10 +8,11 @@ use async_trait::async_trait;
 use config::FrigateApiConfig;
 use json::review::Review;
 use serde_json::Value;
+use std::sync::Arc;
 use tracing::trace_span;
 use traits::FrigateApi;
 
-pub fn make_frigate_client(config: FrigateApiConfig) -> anyhow::Result<Box<dyn FrigateApi>> {
+pub fn make_frigate_client(config: FrigateApiConfig) -> anyhow::Result<Arc<dyn FrigateApi>> {
     let span = trace_span!("make_frigate_client");
     let _enter = span.enter();
 
@@ -36,7 +37,7 @@ pub fn make_frigate_client(config: FrigateApiConfig) -> anyhow::Result<Box<dyn F
 
     tracing::trace!("Returning API object");
 
-    Ok(Box::new(result))
+    Ok(Arc::new(result))
 }
 
 struct FrigateApiClient {
