@@ -62,10 +62,10 @@ tracing-subscriber = "0.3"
 tracing = "0.1"
 reqwest = "0.12"
 rstest = "0.25"
-rumqttc = "0.24.0"
+rumqttc = "0.24"
+serial_test = "3.2"
 ssh2 = "0.9"
 vfs = "0.12"
-
 
 file-sender = { path = "file-sender" }
 frigate-api-caller = { path = "frigate-api-caller" }

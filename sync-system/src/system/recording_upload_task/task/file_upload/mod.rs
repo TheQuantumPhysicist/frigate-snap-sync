@@ -12,7 +12,7 @@ use frigate_api_caller::{config::FrigateApiConfig, traits::FrigateApi};
 use mqtt_handler::types::reviews::Reviews;
 use review_with_clip::ReviewWithClip;
 use std::sync::Arc;
-use utils::time::now_unix_timestamp_f64;
+use utils::time_getter::TimeGetter;
 
 #[derive(thiserror::Error, Debug, Clone, PartialEq, Eq)]
 pub enum ReviewUploadError {
@@ -43,6 +43,7 @@ pub struct ReviewUpload<F, S> {
     frigate_api_config: Arc<FrigateApiConfig>,
     frigate_api_maker: Arc<F>,
     file_sender_maker: Arc<S>,
+    time_getter: TimeGetter,
     path_descriptors: PathDescriptors,
 }
 
@@ -66,6 +67,7 @@ where
             frigate_api_config,
             frigate_api_maker,
             file_sender_maker,
+            time_getter: TimeGetter::default(),
             path_descriptors,
         }
     }
@@ -83,7 +85,10 @@ where
                         .map_err(|e| ReviewUploadError::APIConstructionFailed(e.to_string()))?;
 
                     let start_ts = self.review.start_time();
-                    let end_ts = self.review.end_time().unwrap_or(now_unix_timestamp_f64());
+                    let end_ts = self
+                        .review
+                        .end_time()
+                        .unwrap_or(self.time_getter.get_time().as_unix_timestamp_f64());
 
                     let clip = api
                         .recording_clip(self.review.camera_name(), start_ts, end_ts)
