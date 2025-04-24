@@ -153,6 +153,7 @@ async fn basic_upload_in_virtual_filesystem() {
 
     review_upload.run().await.unwrap();
 
+    // Test the state of the files in the virtual file system
     let dirs = file_sender.ls(Path::new(".")).await.unwrap();
     assert_eq!(dirs.len(), 1);
     assert!(file_sender.dir_exists(&dirs[0]).await.unwrap());
