@@ -3,7 +3,7 @@ mod task;
 use crate::config::PathDescriptors;
 use frigate_api_caller::config::FrigateApiConfig;
 use futures::{StreamExt, stream::FuturesUnordered};
-use mqtt_handler::types::reviews::Reviews;
+use mqtt_handler::types::reviews::ReviewProps;
 use std::{collections::HashMap, fmt::Display, sync::Arc};
 use task::SingleRecordingUploadTask;
 use tokio::task::JoinHandle;
@@ -18,7 +18,7 @@ pub struct RecordingTaskHandler<F, S> {
     running_tasks: FuturesUnordered<JoinHandle<String>>,
     /// Tasks that are running have review ids that are stored here, with a sender
     /// that can send them update objects from Frigate, coming from mqtt
-    tasks_communicators: HashMap<String, tokio::sync::mpsc::UnboundedSender<Arc<Reviews>>>,
+    tasks_communicators: HashMap<String, tokio::sync::mpsc::UnboundedSender<Arc<dyn ReviewProps>>>,
 
     frigate_api_config: Arc<FrigateApiConfig>,
     frigate_api_maker: Arc<F>,
@@ -31,7 +31,7 @@ pub struct RecordingTaskHandler<F, S> {
 
 pub enum RecordingsUploadTaskHandlerUpdate {
     Stop,
-    Task(Arc<Reviews>),
+    Task(Arc<dyn ReviewProps>),
 }
 
 impl<F, S> RecordingTaskHandler<F, S>
@@ -86,7 +86,7 @@ where
         }
     }
 
-    fn register_review_update(&mut self, review: Arc<Reviews>) {
+    fn register_review_update(&mut self, review: Arc<dyn ReviewProps>) {
         let id = review.id().to_string();
 
         if !self.tasks_communicators.contains_key(review.id()) {
@@ -106,8 +106,8 @@ where
 
     fn launch_upload_task(
         &self,
-        review: Arc<Reviews>,
-    ) -> tokio::sync::mpsc::UnboundedSender<Arc<Reviews>> {
+        review: Arc<dyn ReviewProps>,
+    ) -> tokio::sync::mpsc::UnboundedSender<Arc<dyn ReviewProps>> {
         let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
         let handle = tokio::task::spawn(
             SingleRecordingUploadTask::new(

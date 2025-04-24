@@ -1,18 +1,16 @@
-use std::{path::PathBuf, sync::Arc};
-
-use mqtt_handler::types::reviews::Reviews;
-
 use crate::system::common::file_upload::UploadableFile;
+use mqtt_handler::types::reviews::ReviewProps;
+use std::{path::PathBuf, sync::Arc};
 
 #[derive(Debug, Clone)]
 pub struct ReviewWithClip {
-    review: Arc<Reviews>,
+    review: Arc<dyn ReviewProps>,
     clip: Vec<u8>,
     alternative_upload: bool,
 }
 
 impl ReviewWithClip {
-    pub fn new(review: Arc<Reviews>, clip: Vec<u8>, alternative_upload: bool) -> Self {
+    pub fn new(review: Arc<dyn ReviewProps>, clip: Vec<u8>, alternative_upload: bool) -> Self {
         Self {
             review,
             clip,

@@ -6,7 +6,7 @@ use crate::{
 };
 use file_upload::ReviewUpload;
 use frigate_api_caller::config::FrigateApiConfig;
-use mqtt_handler::types::reviews::{self, Reviews};
+use mqtt_handler::types::reviews::{self, ReviewProps};
 use std::sync::Arc;
 
 const DEFAULT_RETRY_PERIOD: std::time::Duration = std::time::Duration::from_secs(60);
@@ -18,10 +18,10 @@ const DEFAULT_MAX_RETRY_ATTEMPTS: u32 = 60;
 #[must_use]
 pub struct SingleRecordingUploadTask<F, S> {
     /// The current review that is being processed for upload
-    current_review: Arc<Reviews>,
+    current_review: Arc<dyn ReviewProps>,
 
     // Updates about the this review is received through this channel
-    receiver: tokio::sync::mpsc::UnboundedReceiver<Arc<Reviews>>,
+    receiver: tokio::sync::mpsc::UnboundedReceiver<Arc<dyn ReviewProps>>,
 
     frigate_api_config: Arc<FrigateApiConfig>,
     frigate_api_maker: Arc<F>,
@@ -48,8 +48,8 @@ where
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        start_review: Arc<Reviews>,
-        receiver: tokio::sync::mpsc::UnboundedReceiver<Arc<Reviews>>,
+        start_review: Arc<dyn ReviewProps>,
+        receiver: tokio::sync::mpsc::UnboundedReceiver<Arc<dyn ReviewProps>>,
         frigate_api_config: Arc<FrigateApiConfig>,
         frigate_api_maker: Arc<F>,
         file_sender_maker: Arc<S>,
@@ -116,7 +116,7 @@ where
         id
     }
 
-    pub async fn on_received_review(&mut self, review: Arc<Reviews>) -> UploadConclusion {
+    pub async fn on_received_review(&mut self, review: Arc<dyn ReviewProps>) -> UploadConclusion {
         self.current_review = review.clone();
 
         let new_upload_process = ReviewUpload::new(

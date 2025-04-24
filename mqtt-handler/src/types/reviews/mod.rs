@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use payload::ReviewsPayload;
 
 pub mod payload;
@@ -35,29 +37,43 @@ impl Reviews {
             None
         }
     }
+}
+
+pub trait ReviewProps: Send + Sync + Debug {
+    #[must_use]
+    fn camera_name(&self) -> &str;
 
     #[must_use]
-    pub fn camera_name(&self) -> &str {
+    fn id(&self) -> &str;
+
+    #[must_use]
+    fn start_time(&self) -> f64;
+
+    #[must_use]
+    fn end_time(&self) -> Option<f64>;
+
+    #[must_use]
+    fn type_field(&self) -> payload::TypeField;
+}
+
+impl ReviewProps for Reviews {
+    fn camera_name(&self) -> &str {
         &self.payload.before.camera
     }
 
-    #[must_use]
-    pub fn id(&self) -> &str {
+    fn id(&self) -> &str {
         &self.payload.before.id
     }
 
-    #[must_use]
-    pub fn start_time(&self) -> f64 {
+    fn start_time(&self) -> f64 {
         self.payload.before.start_time
     }
 
-    #[must_use]
-    pub fn end_time(&self) -> Option<f64> {
+    fn end_time(&self) -> Option<f64> {
         self.payload.after.end_time
     }
 
-    #[must_use]
-    pub fn type_field(&self) -> payload::TypeField {
+    fn type_field(&self) -> payload::TypeField {
         self.payload.type_field
     }
 }

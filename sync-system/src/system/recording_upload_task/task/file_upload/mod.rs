@@ -9,7 +9,7 @@ use crate::{
 };
 use anyhow::Context;
 use frigate_api_caller::{config::FrigateApiConfig, traits::FrigateApi};
-use mqtt_handler::types::reviews::Reviews;
+use mqtt_handler::types::reviews::ReviewProps;
 use review_with_clip::ReviewWithClip;
 use std::sync::Arc;
 use utils::time_getter::TimeGetter;
@@ -30,7 +30,7 @@ pub enum ReviewUploadError {
 
 #[must_use]
 pub struct ReviewUpload<F, S> {
-    review: Arc<Reviews>,
+    review: Arc<dyn ReviewProps>,
     state: ReviewUploadState,
     /// When uploading, we can upload the same review in two different names.
     /// This is because we want to keep the latest available version of the
@@ -53,7 +53,7 @@ where
     S: FileSenderMaker,
 {
     pub fn new(
-        review: Arc<Reviews>,
+        review: Arc<dyn ReviewProps>,
         alternative_upload: bool,
         frigate_api_config: Arc<FrigateApiConfig>,
         frigate_api_maker: Arc<F>,

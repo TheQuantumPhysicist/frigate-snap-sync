@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use crate::config::MqttHandlerConfig;
 use recordings_state::RecordingsState;
-use reviews::Reviews;
+use reviews::{ReviewProps, Reviews};
 use snapshot::Snapshot;
 use snapshots_state::SnapshotsState;
 
@@ -19,7 +19,7 @@ pub enum CapturedPayloads {
     CameraRecordingsState(RecordingsState),
     CameraSnapshotsState(SnapshotsState),
     Snapshot(Snapshot),
-    Reviews(Arc<Reviews>),
+    Reviews(Arc<dyn ReviewProps>),
 }
 
 impl CapturedPayloads {
@@ -52,7 +52,7 @@ impl CapturedPayloads {
 
         if let Some(o) = Reviews::from_topic_parts(&topic_parts, payload) {
             tracing::debug!("Parsed success: Reviews");
-            return Some(Self::Reviews(o.into()));
+            return Some(Self::Reviews(Arc::new(o)));
         }
 
         tracing::debug!("Ignoring message with topic: {topic}");
