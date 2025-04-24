@@ -2,11 +2,16 @@ use async_trait::async_trait;
 use frigate_api_caller::json::review::Review;
 use frigate_api_caller::traits::FrigateApi;
 
+#[must_use]
+pub fn make_frigate_client_mock() -> Box<dyn FrigateApi> {
+    Box::new(MockFrigateApi::new())
+}
+
 mockall::mock! {
-    pub FrigateApiMock {}
+    pub FrigateApi {}
 
     #[async_trait]
-    impl FrigateApi for FrigateApiMock {
+    impl FrigateApi for FrigateApi {
         async fn test_call(&self) -> anyhow::Result<()>;
         async fn review(&self, id: &str) -> anyhow::Result<Review>;
         async fn recording_clip(

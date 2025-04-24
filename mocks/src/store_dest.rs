@@ -4,11 +4,16 @@ use file_sender::traits::StoreDestination;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+#[must_use]
+pub fn make_store_mock() -> Box<dyn StoreDestination<Error = anyhow::Error>> {
+    Box::new(MockStoreDest::new())
+}
+
 mockall::mock! {
-    pub StoreDestinationMock {}
+    pub StoreDest {}
 
     #[async_trait]
-    impl StoreDestination for StoreDestinationMock {
+    impl StoreDestination for StoreDest {
         type Error = anyhow::Error;
 
         async fn init(&self) -> Result<(), anyhow::Error>;
