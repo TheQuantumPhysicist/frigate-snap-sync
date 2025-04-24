@@ -34,7 +34,7 @@ impl UploadableFile for ReviewWithClip {
             .format("%Y-%m-%d_%H-%M-%S%z")
             .to_string();
         format!(
-            "RecordingClip-{}-{datetime}{}.jpg",
+            "RecordingClip-{}-{datetime}{}.mp4",
             self.review.camera_name(),
             self.alternative_name_suffix()
         )
