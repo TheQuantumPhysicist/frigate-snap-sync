@@ -3,7 +3,7 @@ mod review_with_clip;
 use crate::{
     config::PathDescriptors,
     system::{
-        common::{file_upload::upload_file, time::now_unix_timestamp_f64},
+        common::file_upload::upload_file,
         traits::{FileSenderMaker, FrigateApiMaker},
     },
 };
@@ -81,16 +81,11 @@ where
                         .make_frigate_api()
                         .map_err(|e| ReviewUploadError::APIConstructionFailed(e.to_string()))?;
 
-                    let start_ts = self.review.payload.before.start_time;
-                    let end_ts = self
-                        .review
-                        .payload
-                        .after
-                        .end_time
-                        .unwrap_or(now_unix_timestamp_f64());
+                    let start_ts = self.review.start_time();
+                    let end_ts = self.review.end_time();
 
                     let clip = api
-                        .recording_clip(&self.review.payload.before.camera, start_ts, end_ts)
+                        .recording_clip(self.review.camera_name(), start_ts, end_ts)
                         .await
                         .context("Retrieving video clip failed")
                         .map_err(|e| ReviewUploadError::ClipRetrievalError(e.to_string()))?;

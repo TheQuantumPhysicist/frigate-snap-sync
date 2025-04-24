@@ -1,10 +1,11 @@
 use payload::ReviewsPayload;
+use utils::time::now_unix_timestamp_f64;
 
 pub mod payload;
 
 #[derive(Debug, Clone)]
 pub struct Reviews {
-    pub payload: payload::ReviewsPayload,
+    payload: payload::ReviewsPayload,
 }
 
 impl Reviews {
@@ -44,5 +45,23 @@ impl Reviews {
     #[must_use]
     pub fn id(&self) -> &str {
         &self.payload.before.id
+    }
+
+    #[must_use]
+    pub fn start_time(&self) -> f64 {
+        self.payload.before.start_time
+    }
+
+    #[must_use]
+    pub fn end_time(&self) -> f64 {
+        self.payload
+            .after
+            .end_time
+            .unwrap_or(now_unix_timestamp_f64())
+    }
+
+    #[must_use]
+    pub fn type_field(&self) -> payload::TypeField {
+        self.payload.type_field
     }
 }

@@ -23,5 +23,9 @@ frigate-api-caller = { workspace = true }
 logging = { workspace = true }
 mqtt-handler = { workspace = true }
 
+[dev-dependencies]
+mocks = { workspace = true }
+
+
 [lints]
 workspace = true

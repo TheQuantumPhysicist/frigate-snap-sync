@@ -149,7 +149,7 @@ where
             Ok(()) => {
                 self.alternative_upload = !self.alternative_upload;
 
-                if self.current_review.payload.type_field == reviews::payload::TypeField::End {
+                if self.current_review.type_field() == reviews::payload::TypeField::End {
                     UploadConclusion::Done
                 } else {
                     UploadConclusion::NotDone

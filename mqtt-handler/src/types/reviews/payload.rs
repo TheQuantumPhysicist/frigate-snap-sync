@@ -8,7 +8,7 @@ pub struct ReviewsPayload {
     pub after: BeforeAfterField,
 }
 
-#[derive(Debug, PartialEq, Eq, serde::Deserialize, Clone)]
+#[derive(Debug, PartialEq, Eq, serde::Deserialize, Clone, Copy)]
 #[serde(rename_all = "snake_case")]
 pub enum TypeField {
     New,

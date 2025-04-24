@@ -18,6 +18,7 @@ thiserror = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 tap = { workspace = true }
 tracing = { workspace = true }
+utils = { workspace = true }
 
 [dev-dependencies]
 randomness = { workspace = true }

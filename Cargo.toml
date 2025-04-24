@@ -8,11 +8,13 @@ edition = "2024"
 members = [
     "file-sender",
     "frigate-api-caller",
-    "logging", "mocks",
+    "logging",
+    "mocks",
     "mqtt-handler",
     "randomness",
     "sync-system",
     "test-utils",
+    "utils",
 ]
 
 [dependencies]
@@ -68,10 +70,12 @@ vfs = "0.12"
 file-sender = { path = "file-sender" }
 frigate-api-caller = { path = "frigate-api-caller" }
 logging = { path = "logging" }
+mocks = { path = "mocks" }
 mqtt-handler = { path = "mqtt-handler" }
 randomness = { path = "randomness" }
 sync-system = { path = "sync-system" }
 test-utils = { path = "test-utils" }
+utils = { path = "utils" }
 
 [workspace.lints.clippy]
 all = { level = "deny", priority = -1 }
