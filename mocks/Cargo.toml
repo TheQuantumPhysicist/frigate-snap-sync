@@ -1,0 +1,16 @@
+[package]
+name = "mocks"
+edition.workspace = true
+rust-version.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+file-sender = { workspace = true }
+frigate-api-caller = { workspace = true }
+mockall = { workspace = true }
+
+[lints]
+workspace = true

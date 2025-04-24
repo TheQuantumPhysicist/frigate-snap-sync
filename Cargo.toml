@@ -8,7 +8,7 @@ edition = "2024"
 members = [
     "file-sender",
     "frigate-api-caller",
-    "logging",
+    "logging", "mocks",
     "mqtt-handler",
     "randomness",
     "sync-system",

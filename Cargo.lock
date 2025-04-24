@@ -407,7 +407,6 @@ dependencies = [
  "anyhow",
  "async-trait",
  "libssh2-sys",
- "mockall",
  "rstest",
  "ssh2",
  "tempfile",
@@ -493,7 +492,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "mockall",
  "reqwest",
  "rstest",
  "serde",
@@ -1301,6 +1299,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "mocks"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "file-sender",
+ "frigate-api-caller",
+ "mockall",
 ]
 
 [[package]]

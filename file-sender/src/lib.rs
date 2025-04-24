@@ -1,4 +1,3 @@
-pub mod mocks;
 pub mod path_descriptor;
 mod store_local;
 mod store_sftp;

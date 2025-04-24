@@ -11,11 +11,10 @@ workspace = true
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-mockall = { workspace = true }
 libssh2-sys = { workspace = true }
 ssh2 = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["full"]}
+tokio = { workspace = true, features = ["full"] }
 tracing = { workspace = true }
 vfs = { workspace = true }
 

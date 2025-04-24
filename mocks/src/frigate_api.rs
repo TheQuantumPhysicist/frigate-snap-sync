@@ -1,6 +1,6 @@
-use crate::json::review::Review;
-use crate::traits::FrigateApi;
 use async_trait::async_trait;
+use frigate_api_caller::json::review::Review;
+use frigate_api_caller::traits::FrigateApi;
 
 mockall::mock! {
     pub FrigateApiMock {}

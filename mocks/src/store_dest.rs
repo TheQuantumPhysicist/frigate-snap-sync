@@ -1,6 +1,6 @@
-use crate::path_descriptor::PathDescriptor;
-use crate::traits::StoreDestination;
 use async_trait::async_trait;
+use file_sender::path_descriptor::PathDescriptor;
+use file_sender::traits::StoreDestination;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
