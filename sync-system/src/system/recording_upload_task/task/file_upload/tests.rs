@@ -176,4 +176,11 @@ async fn basic_upload_in_virtual_filesystem() {
             .unwrap()
             .contains(&review.camera_name)
     );
+    assert_eq!(
+        file_sender
+            .get_to_memory(&Path::new(".").join(&dirs[0]).join(&uploaded_files[0]))
+            .await
+            .unwrap(),
+        b"Hello world!"
+    )
 }
