@@ -1,5 +1,4 @@
 use payload::ReviewsPayload;
-use utils::time::now_unix_timestamp_f64;
 
 pub mod payload;
 
@@ -53,11 +52,8 @@ impl Reviews {
     }
 
     #[must_use]
-    pub fn end_time(&self) -> f64 {
-        self.payload
-            .after
-            .end_time
-            .unwrap_or(now_unix_timestamp_f64())
+    pub fn end_time(&self) -> Option<f64> {
+        self.payload.after.end_time
     }
 
     #[must_use]

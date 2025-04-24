@@ -17,6 +17,7 @@ serde = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 tracing = { workspace = true }
+utils = { workspace = true }
 
 file-sender = { workspace = true }
 frigate-api-caller = { workspace = true }
