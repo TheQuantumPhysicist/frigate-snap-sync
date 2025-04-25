@@ -3,7 +3,7 @@ mod review_with_clip;
 use crate::{
     config::PathDescriptors,
     system::{
-        common::file_upload::{RemoteFileOp, upload_file},
+        common::file_upload::{RemoteFileOp, remote_file_op},
         traits::{FileSenderMaker, FrigateApiMaker},
     },
 };
@@ -26,6 +26,8 @@ pub enum ReviewUploadError {
     EmptyVideoReturned(String),
     #[error("Review recording upload failed: {0}")]
     RecordingUpload(String),
+    #[error("Deleting alternative upload file failed: {0}")]
+    DeletingAltFile(String),
 }
 
 #[must_use]
@@ -106,26 +108,26 @@ where
                     self.state = ReviewUploadState::UploadToStore(review_with_clip);
                 }
                 ReviewUploadState::UploadToStore(rec) => {
-                    upload_file(
+                    remote_file_op(
                         RemoteFileOp::Upload(rec),
                         self.path_descriptors.path_descriptors.as_ref().clone(),
                         self.file_sender_maker.clone(),
                         3,
                     )
                     .await
-                    .map_err(|e| ReviewUploadError::RecordingUpload(e.to_string()))?;
-
-                    {
-                        // rec.
-                    }
+                    .map_err(|e| ReviewUploadError::DeletingAltFile(e.to_string()))?;
 
                     self.state = ReviewUploadState::DeleteTheAlternative(rec.alternative_path());
                 }
-                ReviewUploadState::DeleteTheAlternative(_alt_path) => {
-                    // TODO: implement this if exists
-                    // let file_senders = make_file_senders(&self.file_sender_maker, &remaining_descriptors).await;
-
-                    // let path = self.file_sender_maker
+                ReviewUploadState::DeleteTheAlternative(alt_path) => {
+                    remote_file_op(
+                        RemoteFileOp::DeleteFileIfExists(alt_path),
+                        self.path_descriptors.path_descriptors.as_ref().clone(),
+                        self.file_sender_maker.clone(),
+                        3,
+                    )
+                    .await
+                    .map_err(|e| ReviewUploadError::RecordingUpload(e.to_string()))?;
 
                     self.state = ReviewUploadState::Done;
                 }

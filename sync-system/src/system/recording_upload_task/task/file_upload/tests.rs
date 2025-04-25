@@ -53,7 +53,7 @@ async fn basic_upload_in_mocks() {
 
     // Prepare the file sender mock
     let mut file_store_mock = make_store_mock();
-    file_store_mock.expect_init().returning(|| Ok(())).once();
+    file_store_mock.expect_init().returning(|| Ok(())).times(2); // Once for upload and once for alt delete
     file_store_mock
         .expect_mkdir_p()
         .returning(|_| Ok(()))
@@ -62,6 +62,9 @@ async fn basic_upload_in_mocks() {
         .expect_put_from_memory()
         .returning(|_, _| Ok(()))
         .once();
+    file_store_mock
+        .expect_file_exists()
+        .returning(|_| Ok(false)); // No alt file exists
 
     // Start the testing
     let frigate_api_mock: Arc<dyn FrigateApi> = Arc::new(frigate_api_mock);

@@ -1,6 +1,9 @@
 use crate::system::traits::FileSenderMaker;
 use file_sender::{path_descriptor::PathDescriptor, traits::StoreDestination};
-use std::{path::PathBuf, sync::Arc};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use super::file_senders::{make_file_senders, split_file_senders_and_descriptors};
 
@@ -16,7 +19,7 @@ pub trait UploadableFile: Send + Sync {
     }
 }
 
-pub async fn upload_file<S: FileSenderMaker>(
+pub async fn remote_file_op<S: FileSenderMaker>(
     op: RemoteFileOp<'_>,
     path_descriptors: Vec<Arc<PathDescriptor>>,
     file_sender_maker: Arc<S>,
@@ -47,6 +50,9 @@ pub async fn upload_file<S: FileSenderMaker>(
             let op_result = match op {
                 RemoteFileOp::Upload(uploadable_file) => {
                     upload_file_inner(uploadable_file, s, attempt_number).await
+                }
+                RemoteFileOp::DeleteFileIfExists(path) => {
+                    delete_file_inner(path, s, attempt_number).await
                 }
             };
             if op_result.is_err() {
@@ -117,20 +123,64 @@ async fn upload_file_inner(
     result
 }
 
+async fn delete_file_inner(
+    path: &Path,
+    file_sender: &Arc<dyn StoreDestination<Error = anyhow::Error>>,
+    attempt_number: u32,
+) -> anyhow::Result<()> {
+    match file_sender.as_ref().file_exists(path).await {
+        Ok(exists) => {
+            if !exists {
+                tracing::info!(
+                    "Attempted to delete a remote file that does not exist: `{}`. Skipping deletion and assuming success.",
+                    path.display()
+                );
+
+                return Ok(());
+            }
+        }
+        Err(e) => {
+            tracing::error!(
+                "Error checking whether a file exists to delete it. Path: `{}`. Attempt number: {attempt_number}. Error: {e}",
+                path.display()
+            );
+        }
+    }
+
+    let result = file_sender.as_ref().del_file(path).await;
+
+    match &result {
+        Ok(()) => {
+            tracing::info!("Successfully deleted file: {}", path.display());
+        }
+        Err(e) => {
+            tracing::error!(
+                "Error deleting remote file: Path `{}`. Attempt number: {attempt_number}. Error: {e}",
+                path.display()
+            );
+        }
+    }
+
+    result
+}
+
 pub enum RemoteFileOp<'a> {
     Upload(&'a dyn UploadableFile),
+    DeleteFileIfExists(&'a Path),
 }
 
 impl RemoteFileOp<'_> {
     pub fn op_name(&self) -> String {
         match self {
             RemoteFileOp::Upload(_uploadable_file) => "file upload".to_string(),
+            RemoteFileOp::DeleteFileIfExists(_path) => "Delete file".to_string(),
         }
     }
 
     pub fn file_description(&self) -> String {
         match self {
             RemoteFileOp::Upload(uploadable_file) => uploadable_file.file_description(),
+            RemoteFileOp::DeleteFileIfExists(path) => format!("Deleting file {}", path.display()),
         }
     }
 }

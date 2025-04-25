@@ -1,6 +1,6 @@
 use super::{
     FileSenderMaker,
-    common::file_upload::{RemoteFileOp, UploadableFile, upload_file},
+    common::file_upload::{RemoteFileOp, UploadableFile, remote_file_op},
 };
 use crate::config::PathDescriptors;
 use file_sender::path_descriptor::PathDescriptor;
@@ -36,7 +36,7 @@ impl<S: FileSenderMaker> SnapshotUploadTask<S> {
         path_descriptors: Vec<Arc<PathDescriptor>>,
         file_sender_maker: Arc<S>,
     ) {
-        let _ = upload_file(
+        let _ = remote_file_op(
             RemoteFileOp::Upload(&file),
             path_descriptors,
             file_sender_maker,
