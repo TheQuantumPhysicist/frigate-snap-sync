@@ -6,7 +6,7 @@ use super::file_senders::{make_file_senders, split_file_senders_and_descriptors}
 
 const SLEEP_AFTER_ERROR: std::time::Duration = std::time::Duration::from_secs(5);
 
-pub trait UploadableFile {
+pub trait UploadableFile: Send + Sync {
     fn file_bytes(&self) -> &[u8];
     fn file_name(&self) -> PathBuf;
     fn file_description(&self) -> String;
@@ -16,22 +16,23 @@ pub trait UploadableFile {
     }
 }
 
-// TODO: separate upload and other possible ops (like deleting a file) so that we can reuse the multiple file-senders algorithm
 pub async fn upload_file<S: FileSenderMaker>(
-    file: &impl UploadableFile,
+    op: RemoteFileOp<'_>,
     path_descriptors: Vec<Arc<PathDescriptor>>,
     file_sender_maker: Arc<S>,
     max_attempt_count: u32,
 ) -> anyhow::Result<()> {
-    // Take a copy of all the descriptors as the initial ones to use for the upload
+    // Take a copy of all the descriptors as the initial ones to use for the op
     let mut remaining_descriptors = path_descriptors;
+
+    let op_name = op.op_name();
 
     for attempt_number in 0..max_attempt_count {
         if remaining_descriptors.is_empty() {
             // no +1 here because it finished in last iter
             tracing::info!(
-                "Done uploading file at attempt '{attempt_number}' for: {}",
-                file.file_description()
+                "Done file op '{op_name}' at attempt '{attempt_number}' for: {}",
+                op.file_description()
             );
             break;
         }
@@ -43,7 +44,11 @@ pub async fn upload_file<S: FileSenderMaker>(
         remaining_descriptors = path_descriptors;
 
         for s in &file_senders {
-            let op_result = upload_file_inner(file, s, attempt_number).await;
+            let op_result = match op {
+                RemoteFileOp::Upload(uploadable_file) => {
+                    upload_file_inner(uploadable_file, s, attempt_number).await
+                }
+            };
             if op_result.is_err() {
                 // Since it failed, we try again later
                 remaining_descriptors.push(s.path_descriptor().clone());
@@ -54,15 +59,15 @@ pub async fn upload_file<S: FileSenderMaker>(
 
     if remaining_descriptors.is_empty() {
         tracing::debug!(
-            "Success: Reaching the end of file upload code for camera {}",
-            file.file_description()
+            "Success: Reaching the end of file op '{op_name}' code for camera {}",
+            op.file_description()
         );
 
         Ok(())
     } else {
         let error = format!(
-            "Error: Reaching the end of file upload code for file `{}` with {} destination(s) having received the file. These are: '{}'",
-            file.file_description(),
+            "Error: Reaching the end of file op '{op_name}' code for file `{}` with {} destination(s) having received the file. These are: '{}'",
+            op.file_description(),
             remaining_descriptors.len(),
             remaining_descriptors
                 .iter()
@@ -76,7 +81,7 @@ pub async fn upload_file<S: FileSenderMaker>(
 }
 
 async fn upload_file_inner(
-    file: &impl UploadableFile,
+    file: &dyn UploadableFile,
     file_sender: &Arc<dyn StoreDestination<Error = anyhow::Error>>,
     attempt_number: u32,
 ) -> anyhow::Result<()> {
@@ -110,4 +115,22 @@ async fn upload_file_inner(
     }
 
     result
+}
+
+pub enum RemoteFileOp<'a> {
+    Upload(&'a dyn UploadableFile),
+}
+
+impl RemoteFileOp<'_> {
+    pub fn op_name(&self) -> String {
+        match self {
+            RemoteFileOp::Upload(_uploadable_file) => "file upload".to_string(),
+        }
+    }
+
+    pub fn file_description(&self) -> String {
+        match self {
+            RemoteFileOp::Upload(uploadable_file) => uploadable_file.file_description(),
+        }
+    }
 }

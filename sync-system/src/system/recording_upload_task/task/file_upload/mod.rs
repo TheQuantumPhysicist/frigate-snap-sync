@@ -3,7 +3,7 @@ mod review_with_clip;
 use crate::{
     config::PathDescriptors,
     system::{
-        common::file_upload::upload_file,
+        common::file_upload::{RemoteFileOp, upload_file},
         traits::{FileSenderMaker, FrigateApiMaker},
     },
 };
@@ -107,7 +107,7 @@ where
                 }
                 ReviewUploadState::UploadToStore(rec) => {
                     upload_file(
-                        rec,
+                        RemoteFileOp::Upload(rec),
                         self.path_descriptors.path_descriptors.as_ref().clone(),
                         self.file_sender_maker.clone(),
                         3,
