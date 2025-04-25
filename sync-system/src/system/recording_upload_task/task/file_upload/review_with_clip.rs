@@ -40,12 +40,14 @@ impl ReviewWithClip {
         let datetime = chrono::Local::now()
             .format("%Y-%m-%d_%H-%M-%S%z")
             .to_string();
-        format!(
+        // TODO: Perhaps there's a better model to do this that's incorporated in UploadableFile trait
+        // instead of manually recreating the full thing.
+        let file_name = format!(
             "RecordingClip-{}-{datetime}{}.mp4",
             self.review.camera_name(),
             self.alternative_name_suffix(true)
-        )
-        .into()
+        );
+        self.upload_dir().join(file_name)
     }
 }
 
