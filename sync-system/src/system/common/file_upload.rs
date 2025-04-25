@@ -1,5 +1,5 @@
 use crate::system::traits::FileSenderMaker;
-use file_sender::path_descriptor::PathDescriptor;
+use file_sender::{path_descriptor::PathDescriptor, traits::StoreDestination};
 use std::{path::PathBuf, sync::Arc};
 
 use super::file_senders::{make_file_senders, split_file_senders_and_descriptors};
@@ -9,10 +9,14 @@ const SLEEP_AFTER_ERROR: std::time::Duration = std::time::Duration::from_secs(5)
 pub trait UploadableFile {
     fn file_bytes(&self) -> &[u8];
     fn file_name(&self) -> PathBuf;
-    fn upload_dir(&self) -> PathBuf;
     fn file_description(&self) -> String;
+    fn upload_dir(&self) -> PathBuf;
+    fn full_upload_path(&self) -> PathBuf {
+        self.upload_dir().join(self.file_name())
+    }
 }
 
+// TODO: separate upload and other possible ops (like deleting a file) so that we can reuse the multiple file-senders algorithm
 pub async fn upload_file<S: FileSenderMaker>(
     file: &impl UploadableFile,
     path_descriptors: Vec<Arc<PathDescriptor>>,
@@ -39,34 +43,11 @@ pub async fn upload_file<S: FileSenderMaker>(
         remaining_descriptors = path_descriptors;
 
         for s in &file_senders {
-            let dir = file.upload_dir();
-            let upload_path = dir.join(file.file_name());
-
-            match s.as_ref().mkdir_p(&dir).await.and(
-                s.as_ref()
-                    .put_from_memory(file.file_bytes(), &upload_path)
-                    .await,
-            ) {
-                Ok(()) => {
-                    tracing::info!(
-                        "Successfully uploaded file {} to {} at attempt {}",
-                        upload_path.display(),
-                        s.path_descriptor(),
-                        attempt_number + 1, // Counting starts from 1
-                    );
-                }
-                Err(e) => {
-                    tracing::error!(
-                        "Error uploading file {} to {}. Attempt number: {}. Error: {e}",
-                        upload_path.display(),
-                        s.path_descriptor(),
-                        attempt_number + 1, // Counting starts from 1
-                    );
-
-                    // Since it failed, we try again later
-                    remaining_descriptors.push(s.path_descriptor().clone());
-                    tokio::time::sleep(SLEEP_AFTER_ERROR).await;
-                }
+            let op_result = upload_file_inner(file, s, attempt_number).await;
+            if op_result.is_err() {
+                // Since it failed, we try again later
+                remaining_descriptors.push(s.path_descriptor().clone());
+                tokio::time::sleep(SLEEP_AFTER_ERROR).await;
             }
         }
     }
@@ -92,4 +73,41 @@ pub async fn upload_file<S: FileSenderMaker>(
 
         Err(anyhow::anyhow!("{error}"))
     }
+}
+
+async fn upload_file_inner(
+    file: &impl UploadableFile,
+    file_sender: &Arc<dyn StoreDestination<Error = anyhow::Error>>,
+    attempt_number: u32,
+) -> anyhow::Result<()> {
+    let dir = file.upload_dir();
+    let upload_path = file.full_upload_path();
+
+    let result = file_sender.as_ref().mkdir_p(&dir).await.and(
+        file_sender
+            .as_ref()
+            .put_from_memory(file.file_bytes(), &upload_path)
+            .await,
+    );
+
+    match &result {
+        Ok(()) => {
+            tracing::info!(
+                "Successfully uploaded file {} to {} at attempt {}",
+                upload_path.display(),
+                file_sender.path_descriptor(),
+                attempt_number + 1, // Counting starts from 1
+            );
+        }
+        Err(e) => {
+            tracing::error!(
+                "Error uploading file {} to {}. Attempt number: {}. Error: {e}",
+                upload_path.display(),
+                file_sender.path_descriptor(),
+                attempt_number + 1, // Counting starts from 1
+            );
+        }
+    }
+
+    result
 }

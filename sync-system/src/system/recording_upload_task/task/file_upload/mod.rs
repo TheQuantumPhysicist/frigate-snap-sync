@@ -11,7 +11,7 @@ use anyhow::Context;
 use frigate_api_caller::{config::FrigateApiConfig, traits::FrigateApi};
 use mqtt_handler::types::reviews::ReviewProps;
 use review_with_clip::ReviewWithClip;
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 use utils::time_getter::TimeGetter;
 
 #[derive(thiserror::Error, Debug, Clone, PartialEq, Eq)]
@@ -115,6 +115,18 @@ where
                     .await
                     .map_err(|e| ReviewUploadError::RecordingUpload(e.to_string()))?;
 
+                    {
+                        // rec.
+                    }
+
+                    self.state = ReviewUploadState::DeleteTheAlternative(rec.alternative_path());
+                }
+                ReviewUploadState::DeleteTheAlternative(_alt_path) => {
+                    // TODO: implement this if exists
+                    // let file_senders = make_file_senders(&self.file_sender_maker, &remaining_descriptors).await;
+
+                    // let path = self.file_sender_maker
+
                     self.state = ReviewUploadState::Done;
                 }
                 ReviewUploadState::Done => return Ok(()),
@@ -133,6 +145,7 @@ pub enum ReviewUploadState {
     Start,
     GettingVideoFromAPI,
     UploadToStore(ReviewWithClip),
+    DeleteTheAlternative(PathBuf),
     Done,
 }
 
