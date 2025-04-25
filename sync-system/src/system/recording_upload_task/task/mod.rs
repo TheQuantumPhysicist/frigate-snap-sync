@@ -169,3 +169,6 @@ pub enum UploadConclusion {
     NotDone,
     Done,
 }
+
+#[cfg(test)]
+mod tests;

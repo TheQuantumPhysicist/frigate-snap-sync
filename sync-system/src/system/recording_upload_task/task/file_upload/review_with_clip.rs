@@ -67,8 +67,10 @@ impl UploadableFile for ReviewWithClip {
     }
 
     fn upload_dir(&self) -> std::path::PathBuf {
-        // TODO: get the date from the review, not from current time
-        let date = Time::local_time_in_dir_foramt();
+        let start_time = self.review.start_time();
+        let time = Time::from_f64_secs_since_epoch(start_time);
+
+        let date = time.as_local_time_in_dir_foramt();
         PathBuf::from(date)
     }
 

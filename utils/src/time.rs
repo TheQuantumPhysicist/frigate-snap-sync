@@ -83,6 +83,13 @@ impl Time {
     }
 
     #[must_use]
+    pub fn from_f64_secs_since_epoch(seconds: f64) -> Self {
+        Self {
+            time: Duration::from_secs_f64(seconds),
+        }
+    }
+
+    #[must_use]
     pub const fn saturating_duration_add(&self, duration: Duration) -> Self {
         Self {
             time: self.time.saturating_add(duration),
@@ -118,6 +125,23 @@ impl Time {
     #[must_use]
     pub fn as_unix_timestamp_f64(&self) -> f64 {
         self.time.as_secs_f64()
+    }
+
+    #[must_use]
+    pub fn as_local_time_in_dir_foramt(&self) -> String {
+        // Convert Duration to seconds and nanoseconds
+        #[allow(clippy::cast_possible_wrap)]
+        let seconds = self.time.as_secs() as i64;
+        let nanoseconds = self.time.subsec_nanos();
+
+        // Create DateTime from timestamp in local timezone
+        let datetime = chrono::Local
+            .timestamp_opt(seconds, nanoseconds)
+            .earliest()
+            .expect("Must be valid, since it's from valid time");
+
+        // Format the date as YYYY-MM-DD
+        datetime.format("%Y-%m-%d").to_string()
     }
 
     #[must_use]
