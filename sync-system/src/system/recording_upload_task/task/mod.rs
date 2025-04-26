@@ -8,9 +8,14 @@ use file_upload::ReviewUpload;
 use frigate_api_caller::config::FrigateApiConfig;
 use mqtt_handler::types::reviews::{self, ReviewProps};
 use std::sync::Arc;
+use tokio::sync::oneshot;
+use utils::time_getter::TimeGetter;
 
 const DEFAULT_RETRY_PERIOD: std::time::Duration = std::time::Duration::from_secs(60);
 const DEFAULT_MAX_RETRY_ATTEMPTS: u32 = 60;
+
+type ReviewsReceiver =
+    tokio::sync::mpsc::UnboundedReceiver<(Arc<dyn ReviewProps>, Option<oneshot::Sender<()>>)>;
 
 /// A struct that tracks the updates of a single review, and keeps uploading until
 /// the review type "end" has been reached, or a deadline is hit.
@@ -20,8 +25,17 @@ pub struct SingleRecordingUploadTask<F, S> {
     /// The current review that is being processed for upload
     current_review: Arc<dyn ReviewProps>,
 
-    // Updates about the this review is received through this channel
-    receiver: tokio::sync::mpsc::UnboundedReceiver<Arc<dyn ReviewProps>>,
+    /// The first task sent, if provided, has to be resolved for this to receive a send,
+    /// after having processed the very first review and the event loop has started.
+    /// This is an Option because it can be used only once, and then it's empty
+    first_review_resolved_sender: Option<oneshot::Sender<()>>,
+
+    /// Updates about the this review is received through this channel
+    /// The oneshot sends after processing the review finishes
+    reviews_receiver: ReviewsReceiver,
+
+    /// A send will happen to this, if exists, when the event loop shuts down
+    end_review_resolved_sender: Option<oneshot::Sender<UploadConclusion>>,
 
     frigate_api_config: Arc<FrigateApiConfig>,
     frigate_api_maker: Arc<F>,
@@ -39,6 +53,8 @@ pub struct SingleRecordingUploadTask<F, S> {
     max_retry_attempts: u32,
 
     retry_duration: std::time::Duration,
+
+    time_getter: TimeGetter,
 }
 
 impl<F, S> SingleRecordingUploadTask<F, S>
@@ -49,17 +65,25 @@ where
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         start_review: Arc<dyn ReviewProps>,
-        receiver: tokio::sync::mpsc::UnboundedReceiver<Arc<dyn ReviewProps>>,
+        first_review_resolved_sender: Option<oneshot::Sender<()>>,
+        reviews_receiver: ReviewsReceiver,
+        end_review_resolved_sender: Option<oneshot::Sender<UploadConclusion>>,
+
         frigate_api_config: Arc<FrigateApiConfig>,
         frigate_api_maker: Arc<F>,
         file_sender_maker: Arc<S>,
         path_descriptors: PathDescriptors,
         max_retry_attempts: Option<u32>,
         retry_period: Option<std::time::Duration>,
+        time_getter: TimeGetter,
     ) -> Self {
         Self {
-            current_review: start_review,
-            receiver,
+            current_review: start_review, // The current one is the start one
+            first_review_resolved_sender,
+            end_review_resolved_sender,
+
+            reviews_receiver,
+
             frigate_api_config,
             frigate_api_maker,
             file_sender_maker,
@@ -73,6 +97,8 @@ where
             max_retry_attempts: max_retry_attempts.unwrap_or(DEFAULT_MAX_RETRY_ATTEMPTS),
 
             retry_duration: retry_period.unwrap_or(DEFAULT_RETRY_PERIOD),
+
+            time_getter,
         }
     }
 
@@ -81,17 +107,37 @@ where
 
         tracing::debug!("Launched recoding upload task for review with id: {id}");
 
+        // We have the initial review, so we use it
+        let _ = self.on_received_review(self.current_review.clone()).await;
+        self.first_review_resolved_sender
+            .take()
+            .expect("Since this is running once, it must exist")
+            .send(())
+            .expect("The channel must exist");
+
+        let mut final_result = UploadConclusion::NotDone;
+
         loop {
             let retry_instant = tokio::time::Instant::now() + self.retry_duration;
 
             tokio::select! {
-                Some(review) = self.receiver.recv() => {
+                Some((review, result_sender)) = self.reviews_receiver.recv() => {
                     let res = self.on_received_review(review).await;
+
+                    final_result = res;
+
+                    if let Some(sender) = result_sender {
+                        if sender.send(()).is_err() {
+                            tracing::error!("CRITICAL: Signal that confirms the result of uploading a recording is dead.
+                                This can indicate a race and bad programming. Should never happen.");
+                        }
+                    }
 
                     match res {
                         UploadConclusion::Done => break,
                         UploadConclusion::NotDone => self.retry_attempt += 1,
-                    }
+                    };
+
                 }
 
                 () = tokio::time::sleep_until(retry_instant) => {
@@ -105,11 +151,22 @@ where
                     tracing::debug!("Retrying to upload recording with id `{id}` after having waited: {}", humantime::format_duration(self.retry_duration));
                     let res = self.run_upload().await;
 
+                    final_result = res;
+
+
                     match res {
                         UploadConclusion::Done => break,
                         UploadConclusion::NotDone => self.retry_attempt += 1,
                     }
                 }
+            }
+        }
+
+        if let Some(sender) = self.end_review_resolved_sender {
+            if sender.send(final_result).is_err() {
+                tracing::error!(
+                    "CRITICAL: Sender that indicates that a single recording upload task is done failed to indicate that the event loop is done. This indicates a race."
+                );
             }
         }
 
@@ -126,6 +183,7 @@ where
             self.frigate_api_maker.clone(),
             self.file_sender_maker.clone(),
             self.path_descriptors.clone(),
+            self.time_getter.clone(),
         );
 
         // Previous upload attempts will be be cancelled if a new recording has arrived.

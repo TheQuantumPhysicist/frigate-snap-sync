@@ -61,6 +61,7 @@ where
         frigate_api_maker: Arc<F>,
         file_sender_maker: Arc<S>,
         path_descriptors: PathDescriptors,
+        time_getter: TimeGetter,
     ) -> Self {
         Self {
             review,
@@ -69,7 +70,7 @@ where
             frigate_api_config,
             frigate_api_maker,
             file_sender_maker,
-            time_getter: TimeGetter::default(),
+            time_getter,
             path_descriptors,
         }
     }

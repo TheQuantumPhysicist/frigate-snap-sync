@@ -6,9 +6,15 @@ use futures::{StreamExt, stream::FuturesUnordered};
 use mqtt_handler::types::reviews::ReviewProps;
 use std::{collections::HashMap, fmt::Display, sync::Arc};
 use task::SingleRecordingUploadTask;
-use tokio::task::JoinHandle;
+use tokio::{sync::oneshot, task::JoinHandle};
+use utils::time_getter::TimeGetter;
 
 use super::traits::{FileSenderMaker, FrigateApiMaker};
+
+type TaskMap = HashMap<
+    String,
+    tokio::sync::mpsc::UnboundedSender<(Arc<dyn ReviewProps>, Option<oneshot::Sender<()>>)>,
+>;
 
 /// All recordings uploads are handled in this struct.
 pub struct RecordingTaskHandler<F, S> {
@@ -18,7 +24,7 @@ pub struct RecordingTaskHandler<F, S> {
     running_tasks: FuturesUnordered<JoinHandle<String>>,
     /// Tasks that are running have review ids that are stored here, with a sender
     /// that can send them update objects from Frigate, coming from mqtt
-    tasks_communicators: HashMap<String, tokio::sync::mpsc::UnboundedSender<Arc<dyn ReviewProps>>>,
+    tasks_communicators: TaskMap,
 
     frigate_api_config: Arc<FrigateApiConfig>,
     frigate_api_maker: Arc<F>,
@@ -70,7 +76,7 @@ where
                             }
                         }
                         RecordingsUploadTaskHandlerUpdate::Task(review) => {
-                            self.register_review_update(review);
+                            self.register_review_update(review).await;
                         }
                     }
                 }
@@ -86,11 +92,11 @@ where
         }
     }
 
-    fn register_review_update(&mut self, review: Arc<dyn ReviewProps>) {
+    async fn register_review_update(&mut self, review: Arc<dyn ReviewProps>) {
         let id = review.id().to_string();
 
         if !self.tasks_communicators.contains_key(review.id()) {
-            let updates_sender = self.launch_upload_task(review.clone());
+            let updates_sender = self.launch_upload_task(review.clone()).await;
             self.tasks_communicators.insert(id, updates_sender);
         }
 
@@ -100,32 +106,41 @@ where
             .expect("It was just inserted");
 
         sender
-            .send(review)
+            .send((review, None))
             .expect("Invariant broken. Task communicators map could not send.");
     }
 
-    fn launch_upload_task(
+    async fn launch_upload_task(
         &self,
         review: Arc<dyn ReviewProps>,
-    ) -> tokio::sync::mpsc::UnboundedSender<Arc<dyn ReviewProps>> {
-        let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
+    ) -> tokio::sync::mpsc::UnboundedSender<(Arc<dyn ReviewProps>, Option<oneshot::Sender<()>>)>
+    {
+        let (reviews_sender, reviews_receiver) = tokio::sync::mpsc::unbounded_channel();
+        let (first_resolve_sender, first_resolve_receiver) = tokio::sync::oneshot::channel::<()>();
         let handle = tokio::task::spawn(
             SingleRecordingUploadTask::new(
                 review,
-                receiver,
+                Some(first_resolve_sender),
+                reviews_receiver,
+                None,
                 self.frigate_api_config.clone(),
                 self.frigate_api_maker.clone(),
                 self.file_sender_maker.clone(),
                 self.path_descriptors.clone(),
                 None,
                 None,
+                TimeGetter::default(),
             )
             .start(),
         );
 
+        first_resolve_receiver
+            .await
+            .expect("The task cannot die so early");
+
         self.running_tasks.push(handle);
 
-        sender
+        reviews_sender
     }
 
     fn on_task_joined<E: Display>(&mut self, task_result: Result<String, E>) {

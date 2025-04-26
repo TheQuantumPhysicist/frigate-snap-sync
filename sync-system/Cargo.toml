@@ -26,6 +26,8 @@ mqtt-handler = { workspace = true }
 
 [dev-dependencies]
 mocks = { workspace = true }
+test-utils = { workspace = true }
+rstest = { workspace = true }
 
 
 [lints]

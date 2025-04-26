@@ -9,6 +9,7 @@ use file_sender::{
 use frigate_api_caller::{config::FrigateApiConfig, traits::FrigateApi};
 use mocks::{frigate_api::make_frigate_client_mock, store_dest::make_store_mock};
 use mqtt_handler::types::reviews::{ReviewProps, payload};
+use utils::time_getter::TimeGetter;
 
 #[derive(Debug, Clone)]
 struct TestReviewData {
@@ -100,6 +101,7 @@ async fn basic_upload_in_mocks() {
         frigate_api_maker,
         file_sender_maker,
         path_descriptors,
+        TimeGetter::default(),
     );
 
     review_upload.run().await.unwrap();
@@ -153,6 +155,7 @@ async fn basic_upload_in_virtual_filesystem() {
             frigate_api_maker,
             file_sender_maker,
             path_descriptors,
+            TimeGetter::default(),
         );
 
         review_upload.run().await.unwrap();
@@ -230,6 +233,7 @@ async fn basic_upload_in_virtual_filesystem() {
             frigate_api_maker,
             file_sender_maker,
             path_descriptors,
+            TimeGetter::default(),
         );
 
         review_upload.run().await.unwrap();
