@@ -25,6 +25,7 @@ logging = { workspace = true }
 mqtt-handler = { workspace = true }
 
 [dev-dependencies]
+mockall = { workspace = true }
 mocks = { workspace = true }
 test-utils = { workspace = true }
 rstest = { workspace = true }

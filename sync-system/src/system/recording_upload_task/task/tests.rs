@@ -1,13 +1,14 @@
+use file_sender::{
+    make_inmemory_filesystem, path_descriptor::PathDescriptor, traits::StoreDestination,
+};
+use frigate_api_caller::traits::FrigateApi;
+use mocks::{frigate_api::make_frigate_client_mock, store_dest::make_store_mock};
+use mqtt_handler::types::reviews::payload;
+use rstest::rstest;
 use std::{
     path::{Path, PathBuf},
     sync::Mutex,
 };
-
-use file_sender::{make_inmemory_filesystem, path_descriptor::PathDescriptor};
-use frigate_api_caller::traits::FrigateApi;
-use mocks::frigate_api::make_frigate_client_mock;
-use mqtt_handler::types::reviews::payload;
-use rstest::rstest;
 use test_utils::{
     asserts::assert_str_ends_with,
     random::{Seed, gen_random_bytes, make_seedable_rng, random_seed},
@@ -60,7 +61,7 @@ async fn recording_upload(random_seed: Seed) {
     let expected_file_content = Arc::new(Mutex::new(gen_random_bytes(&mut rng, 100..1000)));
     let expected_file_content_inner = expected_file_content.clone();
 
-    // Prepare the file sender mock
+    // Prepare the file sender
     let file_sender = make_inmemory_filesystem();
     let file_sender_inner = file_sender.clone();
 
@@ -262,6 +263,171 @@ async fn recording_upload(random_seed: Seed) {
                     .unwrap(),
                 *expected_file_content.lock().unwrap()
             );
+        }
+
+        task_handle.await.unwrap();
+
+        assert_eq!(end_receiver.await.unwrap(), UploadConclusion::Done);
+    }
+}
+
+#[tokio::test]
+#[rstest]
+async fn recording_upload_mocked(random_seed: Seed) {
+    let mut rng = make_seedable_rng(random_seed);
+
+    let frigate_config = FrigateApiConfig {
+        frigate_api_base_url: "http://someurl.com:5000/".to_string(),
+        frigate_api_proxy: None,
+    };
+
+    let expected_file_content = Arc::new(Mutex::new(gen_random_bytes(&mut rng, 100..1000)));
+    let expected_file_content_inner = expected_file_content.clone();
+
+    // Prepare the file sender mock
+    let mut file_store_mock = make_store_mock();
+    file_store_mock.expect_init().returning(|| Ok(())).times(8);
+    file_store_mock
+        .expect_mkdir_p()
+        .returning(|_| Ok(()))
+        .times(4);
+    file_store_mock
+        .expect_put_from_memory()
+        .returning(|_, _| Ok(()))
+        .times(4);
+
+    let file_name = Arc::new(Mutex::new(PathBuf::new()));
+    let file_name_clone1 = file_name.clone();
+    let file_name_clone2 = file_name.clone();
+
+    file_store_mock
+        .expect_file_exists()
+        .returning(move |file_name_p| {
+            *file_name_clone1.lock().unwrap() = file_name_p.to_owned();
+            Ok(true)
+        })
+        .times(4);
+    file_store_mock
+        .expect_del_file()
+        .returning(move |file_name_p| {
+            assert_eq!(file_name_p, &*file_name_clone2.lock().unwrap());
+            Ok(())
+        })
+        .times(4);
+
+    let file_store_mock: Arc<dyn StoreDestination<Error = anyhow::Error>> =
+        Arc::new(file_store_mock);
+
+    // Prepare the API mock
+    let mut frigate_api_mock = make_frigate_client_mock();
+    frigate_api_mock
+        .expect_recording_clip()
+        .returning(move |_, _, _| {
+            Ok(Some(
+                expected_file_content_inner.clone().lock().unwrap().clone(),
+            ))
+        });
+
+    let review_new = TestReviewData {
+        camera_name: "MyCamera".to_string(),
+        start_time: 950.,
+        end_time: None,
+        id: "id-abcdefg".to_string(),
+        type_field: payload::TypeField::New,
+    };
+
+    let file_sender_maker = Arc::new(move |_: &Arc<PathDescriptor>| Ok(file_store_mock.clone()));
+    let frigate_api_mock: Arc<dyn FrigateApi> = Arc::new(frigate_api_mock);
+    let frigate_api_maker = Arc::new(move |_: &FrigateApiConfig| Ok(frigate_api_mock.clone()));
+
+    let (review_sender, review_receiver) = tokio::sync::mpsc::unbounded_channel();
+
+    {
+        let (first_resolve_sender, first_resolve_receiver) = tokio::sync::oneshot::channel::<()>();
+        let (end_sender, end_receiver) = tokio::sync::oneshot::channel::<UploadConclusion>();
+
+        let path_descriptors = PathDescriptors {
+            path_descriptors: Arc::new(vec![Arc::new(PathDescriptor::Local(
+                "/home/data/".to_string().into(),
+            ))]),
+        };
+
+        let task = SingleRecordingUploadTask::new(
+            Arc::new(review_new),
+            Some(first_resolve_sender),
+            review_receiver,
+            Some(end_sender),
+            Arc::new(frigate_config),
+            frigate_api_maker,
+            file_sender_maker,
+            path_descriptors,
+            Some(3),
+            Some(std::time::Duration::from_secs(2)),
+            TimeGetter::default(),
+        );
+        let task_handle = tokio::task::spawn(task.start());
+
+        first_resolve_receiver.await.unwrap();
+
+        {
+            // refresh the incoming data, to make sure data is different
+            *expected_file_content.lock().unwrap() = gen_random_bytes(&mut rng, 100..1000);
+
+            let review_update_1 = TestReviewData {
+                camera_name: "MyCamera".to_string(),
+                start_time: 950.,
+                end_time: None,
+                id: "id-abcdefg".to_string(),
+                type_field: payload::TypeField::Update,
+            };
+
+            let (review_res_sender, review_res_receiver) = oneshot::channel();
+
+            review_sender
+                .send((Arc::new(review_update_1), Some(review_res_sender)))
+                .unwrap();
+
+            review_res_receiver.await.unwrap();
+        }
+
+        {
+            *expected_file_content.lock().unwrap() = gen_random_bytes(&mut rng, 100..1000);
+
+            let review_update_2 = TestReviewData {
+                camera_name: "MyCamera".to_string(),
+                start_time: 950.,
+                end_time: None,
+                id: "id-abcdefg".to_string(),
+                type_field: payload::TypeField::Update,
+            };
+
+            let (review_res_sender, review_res_receiver) = oneshot::channel();
+
+            review_sender
+                .send((Arc::new(review_update_2), Some(review_res_sender)))
+                .unwrap();
+
+            review_res_receiver.await.unwrap();
+        }
+
+        {
+            *expected_file_content.lock().unwrap() = gen_random_bytes(&mut rng, 100..1000);
+
+            let review_end = TestReviewData {
+                camera_name: "MyCamera".to_string(),
+                start_time: 950.,
+                end_time: Some(1000.),
+                id: "id-abcdefg".to_string(),
+                type_field: payload::TypeField::End,
+            };
+
+            let (review_res_sender, review_res_receiver) = oneshot::channel();
+
+            review_sender
+                .send((Arc::new(review_end), Some(review_res_sender)))
+                .unwrap();
+
+            review_res_receiver.await.unwrap();
         }
 
         task_handle.await.unwrap();

@@ -122,9 +122,7 @@ where
 
             tokio::select! {
                 Some((review, result_sender)) = self.reviews_receiver.recv() => {
-                    let res = self.on_received_review(review).await;
-
-                    final_result = res;
+                    final_result = self.on_received_review(review).await;
 
                     if let Some(sender) = result_sender {
                         if sender.send(()).is_err() {
@@ -133,7 +131,7 @@ where
                         }
                     }
 
-                    match res {
+                    match final_result {
                         UploadConclusion::Done => break,
                         UploadConclusion::NotDone => self.retry_attempt += 1,
                     };
@@ -149,12 +147,9 @@ where
                     }
 
                     tracing::debug!("Retrying to upload recording with id `{id}` after having waited: {}", humantime::format_duration(self.retry_duration));
-                    let res = self.run_upload().await;
+                    final_result = self.run_upload().await;
 
-                    final_result = res;
-
-
-                    match res {
+                    match final_result {
                         UploadConclusion::Done => break,
                         UploadConclusion::NotDone => self.retry_attempt += 1,
                     }
@@ -205,6 +200,7 @@ where
 
         match result {
             Ok(()) => {
+                // When an upload is successful, the next upload will go to the alternative file name
                 self.alternative_upload = !self.alternative_upload;
 
                 if self.current_review.type_field() == reviews::payload::TypeField::End {
