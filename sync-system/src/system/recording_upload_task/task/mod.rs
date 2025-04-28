@@ -40,10 +40,11 @@ pub struct SingleRecordingUploadTask<F, S> {
     frigate_api_config: Arc<FrigateApiConfig>,
     frigate_api_maker: Arc<F>,
     file_sender_maker: Arc<S>,
+
     path_descriptors: PathDescriptors,
 
-    /// The upload that is currently running. This can be replaced by a new
-    /// object when an update is received.
+    /// The upload that is currently running (or will be run to retry or done, so running it will lead to no-op).
+    /// This can be replaced by a new object when an update is received.
     current_upload_process: Option<ReviewUpload<F, S>>,
 
     // See `ReviewUpload` for more information.
