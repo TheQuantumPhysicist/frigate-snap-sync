@@ -783,7 +783,7 @@ async fn recording_upload_mocked_failures_in_download_then_upload_leads_to_not_d
         .once()
         .in_sequence(&mut sequence);
 
-    let number_of_download_attempts: u32 = 4; //rng.random_range(4..10);
+    let number_of_download_attempts: u32 = rng.random_range(4..7);
 
     for i in 0..number_of_download_attempts * MAX_UPLOAD_ATTEMPTS - 1
     // - 1 for one failure in getting the clip
