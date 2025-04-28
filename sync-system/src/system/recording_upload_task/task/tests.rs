@@ -1,3 +1,5 @@
+use super::*;
+use crate::system::recording_upload_task::task::file_upload::MAX_UPLOAD_ATTEMPTS;
 use file_sender::{
     make_inmemory_filesystem, path_descriptor::PathDescriptor, traits::StoreDestination,
 };
@@ -15,11 +17,7 @@ use test_utils::{
 };
 use utils::time::Time;
 
-use crate::system::recording_upload_task::task::file_upload::MAX_UPLOAD_ATTEMPTS;
-
-use super::*;
-
-const RETRY_PERIOD: std::time::Duration = std::time::Duration::from_secs(1);
+const RETRY_PERIOD: std::time::Duration = std::time::Duration::from_millis(500);
 
 #[derive(Debug, Clone)]
 struct TestReviewData {
