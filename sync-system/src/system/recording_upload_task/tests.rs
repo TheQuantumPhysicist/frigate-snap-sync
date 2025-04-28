@@ -200,6 +200,7 @@ async fn recordings_task_handler(random_seed: Seed) {
         // Now after the end event, the task should be evicted
         assert_eq!(get_task_count(&cmd_sender).await, 0);
     }
+
     // stop and shutdown
     {
         cmd_sender
