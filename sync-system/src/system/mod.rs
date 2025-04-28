@@ -78,6 +78,8 @@ where
                 frigate_api_maker,
                 file_sender_maker,
                 path_descriptors,
+                None,
+                None,
             )
             .run()
             .await;

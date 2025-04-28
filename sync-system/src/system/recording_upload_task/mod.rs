@@ -33,6 +33,9 @@ pub struct RecordingTaskHandler<F, S> {
     file_sender_maker: Arc<S>,
     path_descriptors: PathDescriptors,
 
+    max_retry_attempts_on_task: Option<u32>,
+    retry_attempt_period: Option<std::time::Duration>,
+
     /// Stops the event loop
     stopped: bool,
 }
@@ -58,16 +61,22 @@ where
         frigate_api_maker: Arc<F>,
         file_sender_maker: Arc<S>,
         path_descriptors: PathDescriptors,
+        max_retry_attempts_on_task: Option<u32>,
+        retry_attempt_period: Option<std::time::Duration>,
     ) -> Self {
         Self {
             running_tasks: FuturesUnordered::default(),
             command_receiver,
-            stopped: false,
             tasks_communicators: HashMap::default(),
             frigate_api_config,
             frigate_api_maker,
             file_sender_maker,
             path_descriptors,
+
+            max_retry_attempts_on_task,
+            retry_attempt_period,
+
+            stopped: false,
         }
     }
 
@@ -144,8 +153,8 @@ where
                 self.frigate_api_maker.clone(),
                 self.file_sender_maker.clone(),
                 self.path_descriptors.clone(),
-                None,
-                None,
+                self.max_retry_attempts_on_task,
+                self.retry_attempt_period,
                 TimeGetter::default(),
             )
             .start(),

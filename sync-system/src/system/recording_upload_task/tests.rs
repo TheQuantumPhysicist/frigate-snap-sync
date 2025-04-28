@@ -112,6 +112,8 @@ async fn recordings_task_handler(random_seed: Seed) {
         frigate_api_maker,
         file_sender_maker,
         path_descriptors,
+        None,
+        None,
     );
 
     let task_handle = tokio::task::spawn(task.run());
@@ -266,6 +268,8 @@ async fn recordings_task_handler_shutdown(random_seed: Seed) {
         frigate_api_maker,
         file_sender_maker,
         path_descriptors,
+        None,
+        None,
     );
 
     let task_handle = tokio::task::spawn(task.run());
@@ -278,6 +282,104 @@ async fn recordings_task_handler_shutdown(random_seed: Seed) {
     {
         assert_not_finished_for(&task_handle, wait_time).await;
         assert!(!task_handle.is_finished());
+    }
+
+    // stop and shutdown
+    {
+        cmd_sender
+            .send(RecordingsUploadTaskHandlerCommand::Stop)
+            .unwrap();
+
+        task_handle.await.unwrap();
+    }
+}
+
+#[tokio::test]
+#[rstest]
+async fn recordings_task_handler_timeout_loses_task(random_seed: Seed) {
+    let mut rng = make_seedable_rng(random_seed);
+
+    let (cmd_sender, cmd_receiver) = tokio::sync::mpsc::unbounded_channel();
+
+    let frigate_config = FrigateApiConfig {
+        frigate_api_base_url: "http://someurl.com:5000/".to_string(),
+        frigate_api_proxy: None,
+    };
+
+    let path_descriptors = PathDescriptors {
+        path_descriptors: Arc::new(vec![Arc::new(PathDescriptor::Local(
+            "/home/data/".to_string().into(),
+        ))]),
+    };
+
+    let expected_file_content = Arc::new(Mutex::new(gen_random_bytes(&mut rng, 100..1000)));
+    let expected_file_content_inner = expected_file_content.clone();
+
+    // Prepare the file sender
+    let file_sender = make_inmemory_filesystem();
+    let file_sender_inner = file_sender.clone();
+
+    // Prepare the API mock
+    let mut frigate_api_mock = make_frigate_client_mock();
+    frigate_api_mock
+        .expect_recording_clip()
+        .returning(move |_, _, _| {
+            Ok(Some(
+                expected_file_content_inner.clone().lock().unwrap().clone(),
+            ))
+        });
+    let frigate_api_mock: Arc<dyn FrigateApi> = Arc::new(frigate_api_mock);
+    let frigate_api_maker = Arc::new(move |_: &FrigateApiConfig| Ok(frigate_api_mock.clone()));
+
+    let file_sender_maker = Arc::new(move |_: &Arc<PathDescriptor>| Ok(file_sender_inner.clone()));
+
+    let max_retries = 3;
+    let retry_period = std::time::Duration::from_millis(500);
+    let total_wait_period = 2 * max_retries * retry_period; // multiply by 2 for safety
+
+    let task = RecordingTaskHandler::new(
+        cmd_receiver,
+        Arc::new(frigate_config),
+        frigate_api_maker,
+        file_sender_maker,
+        path_descriptors,
+        Some(max_retries),
+        Some(retry_period),
+    );
+
+    let task_handle = tokio::task::spawn(task.run());
+
+    assert_eq!(get_task_count(&cmd_sender).await, 0);
+
+    {
+        let review_new = TestReviewData {
+            camera_name: "MyCamera".to_string(),
+            start_time: 950.,
+            end_time: None,
+            id: "id-abcdefg".to_string(),
+            type_field: payload::TypeField::New,
+        };
+
+        let (confirm_sender, confirm_receiver) = oneshot::channel();
+
+        cmd_sender
+            .send(RecordingsUploadTaskHandlerCommand::Task(
+                Arc::new(review_new),
+                Some(confirm_sender),
+            ))
+            .unwrap();
+
+        confirm_receiver.await.unwrap();
+
+        assert_eq!(get_task_count(&cmd_sender).await, 1);
+    }
+
+    {
+        assert_eq!(get_task_count(&cmd_sender).await, 1);
+        // We wait for the task to fail
+        tokio::time::sleep(total_wait_period).await;
+        // After waiting long enough, the task should be dead
+        assert_eq!(get_task_count(&cmd_sender).await, 0);
     }
 
     // stop and shutdown
