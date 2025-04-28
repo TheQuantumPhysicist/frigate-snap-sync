@@ -19,7 +19,6 @@ use traits::{FileSenderMaker, FrigateApiMaker};
 use utils::struct_name;
 
 const STRUCT_NAME: &str = struct_name!(SyncSystem);
-
 const SLEEP_TIME_ON_API_ERROR: std::time::Duration = std::time::Duration::from_secs(10);
 
 pub struct SyncSystem<F, S> {
