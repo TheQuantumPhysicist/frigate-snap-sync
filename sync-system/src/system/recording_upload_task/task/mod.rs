@@ -122,6 +122,9 @@ where
 
             tokio::select! {
                 Some((review, result_sender)) = self.reviews_receiver.recv() => {
+                    // After having received a new review, we reset the retries
+                    self.reset_retry_attempts();
+
                     final_result = self.on_received_review(review).await;
 
                     if let Some(sender) = result_sender {
@@ -133,7 +136,7 @@ where
 
                     match final_result {
                         UploadConclusion::Done => break,
-                        UploadConclusion::NotDone => self.retry_attempt += 1,
+                        UploadConclusion::NotDone => self.increment_retry_attempts(),
                     };
 
                 }
@@ -146,12 +149,17 @@ where
                         break;
                     }
 
-                    tracing::debug!("Retrying to upload recording with id `{id}` after having waited: {}", humantime::format_duration(self.retry_duration));
+                    // Retries will eventually stop after enough attempts have been made
+                    self.increment_retry_attempts();
+
+                    // Note that running upload again doesn't necessarily mean it will re-upload. If the file hasn't been uploaded,
+                    // it will try again. But if it's successfully done, it will just be a No-Op.
+                    tracing::debug!("Re-running upload recording with id `{id}` after having waited: {}. If no review update has been received, this will be a no-op.", humantime::format_duration(self.retry_duration));
                     final_result = self.run_upload().await;
 
                     match final_result {
                         UploadConclusion::Done => break,
-                        UploadConclusion::NotDone => self.retry_attempt += 1,
+                        UploadConclusion::NotDone => (),
                     }
                 }
             }
@@ -166,6 +174,14 @@ where
         }
 
         id
+    }
+
+    fn increment_retry_attempts(&mut self) {
+        self.retry_attempt += 1;
+    }
+
+    fn reset_retry_attempts(&mut self) {
+        self.retry_attempt = 0;
     }
 
     pub async fn on_received_review(&mut self, review: Arc<dyn ReviewProps>) -> UploadConclusion {
@@ -217,6 +233,7 @@ where
     }
 }
 
+/// The result of uploading a single recording file
 #[must_use]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UploadConclusion {
