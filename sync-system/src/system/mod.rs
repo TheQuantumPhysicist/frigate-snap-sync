@@ -11,17 +11,12 @@ use mqtt_handler::{
     config::MqttHandlerConfig,
     types::{CapturedPayloads, snapshot::Snapshot},
 };
-use recording_upload_task::{RecordingTaskHandler, RecordingsUploadTaskHandlerUpdate};
+use recording_upload_task::{RecordingTaskHandler, RecordingsUploadTaskHandlerCommand};
 use snapshot_upload_task::SnapshotUploadTask;
 use std::{path::Path, sync::Arc};
 use tokio::{sync::mpsc::UnboundedReceiver, task::JoinHandle};
 use traits::{FileSenderMaker, FrigateApiMaker};
-
-macro_rules! struct_name {
-    ($t:ty) => {
-        stringify!($t)
-    };
-}
+use utils::struct_name;
 
 const STRUCT_NAME: &str = struct_name!(SyncSystem);
 
@@ -120,7 +115,7 @@ where
         mqtt_handler.wait().await;
 
         rec_updates_sender
-            .send(RecordingsUploadTaskHandlerUpdate::Stop)
+            .send(RecordingsUploadTaskHandlerCommand::Stop)
             .expect("Sending stop signal for recordings handler failed");
         match rec_handler_task.await {
             Ok(()) => tracing::info!("Joining recordings handler task completed successfully."),
@@ -133,7 +128,7 @@ where
     fn on_mqtt_data_received(
         &mut self,
         data: CapturedPayloads,
-        rec_updates_sender: &tokio::sync::mpsc::UnboundedSender<RecordingsUploadTaskHandlerUpdate>,
+        rec_updates_sender: &tokio::sync::mpsc::UnboundedSender<RecordingsUploadTaskHandlerCommand>,
     ) {
         match data {
             CapturedPayloads::CameraRecordingsState(recordings_state) => {
@@ -190,8 +185,8 @@ where
                     let id = review.id().to_string();
                     tracing::debug!("Sending review for camera {camera_name} with id {id}");
 
-                    let send_res =
-                        rec_updates_sender.send(RecordingsUploadTaskHandlerUpdate::Task(review));
+                    let send_res = rec_updates_sender
+                        .send(RecordingsUploadTaskHandlerCommand::Task(review, None));
 
                     match send_res {
                         Ok(()) => tracing::trace!(

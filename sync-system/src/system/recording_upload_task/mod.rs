@@ -1,5 +1,6 @@
 mod task;
 
+use super::traits::{FileSenderMaker, FrigateApiMaker};
 use crate::config::PathDescriptors;
 use frigate_api_caller::config::FrigateApiConfig;
 use futures::{StreamExt, stream::FuturesUnordered};
@@ -7,9 +8,9 @@ use mqtt_handler::types::reviews::ReviewProps;
 use std::{collections::HashMap, fmt::Display, sync::Arc};
 use task::SingleRecordingUploadTask;
 use tokio::{sync::oneshot, task::JoinHandle};
-use utils::time_getter::TimeGetter;
+use utils::{struct_name, time_getter::TimeGetter};
 
-use super::traits::{FileSenderMaker, FrigateApiMaker};
+const STRUCT_NAME: &str = struct_name!(SyncSystem);
 
 type TaskMap = HashMap<
     String,
@@ -17,9 +18,10 @@ type TaskMap = HashMap<
 >;
 
 /// All recordings uploads are handled in this struct.
+#[must_use]
 pub struct RecordingTaskHandler<F, S> {
     /// Commands that control this struct
-    command_receiver: tokio::sync::mpsc::UnboundedReceiver<RecordingsUploadTaskHandlerUpdate>,
+    command_receiver: tokio::sync::mpsc::UnboundedReceiver<RecordingsUploadTaskHandlerCommand>,
     /// All the upload tasks futures running are here and are to be eventually joined
     running_tasks: FuturesUnordered<JoinHandle<String>>,
     /// Tasks that are running have review ids that are stored here, with a sender
@@ -35,9 +37,14 @@ pub struct RecordingTaskHandler<F, S> {
     stopped: bool,
 }
 
-pub enum RecordingsUploadTaskHandlerUpdate {
+#[allow(dead_code)]
+pub enum RecordingsUploadTaskHandlerCommand {
+    /// Send a new Review to process its recording
+    Task(Arc<dyn ReviewProps>, Option<oneshot::Sender<()>>),
+    /// Get the number of outstanding upload tasks running
+    GetTaskCount(oneshot::Sender<usize>),
+    /// Stops the task handler by shutting down the event loop
     Stop,
-    Task(Arc<dyn ReviewProps>),
 }
 
 impl<F, S> RecordingTaskHandler<F, S>
@@ -46,7 +53,7 @@ where
     S: FileSenderMaker,
 {
     pub fn new(
-        update_receiver: tokio::sync::mpsc::UnboundedReceiver<RecordingsUploadTaskHandlerUpdate>,
+        command_receiver: tokio::sync::mpsc::UnboundedReceiver<RecordingsUploadTaskHandlerCommand>,
         frigate_api_config: Arc<FrigateApiConfig>,
         frigate_api_maker: Arc<F>,
         file_sender_maker: Arc<S>,
@@ -54,7 +61,7 @@ where
     ) -> Self {
         Self {
             running_tasks: FuturesUnordered::default(),
-            command_receiver: update_receiver,
+            command_receiver,
             stopped: false,
             tasks_communicators: HashMap::default(),
             frigate_api_config,
@@ -65,18 +72,28 @@ where
     }
 
     pub async fn run(mut self) {
-        loop {
+        while !self.stopped {
             tokio::select! {
                 Some(update) = self.command_receiver.recv() => {
                     match update {
-                        RecordingsUploadTaskHandlerUpdate::Stop => {
+                        RecordingsUploadTaskHandlerCommand::Stop => {
                             self.stopped = true;
                             if self.running_tasks.is_empty() {
                                 break;
                             }
                         }
-                        RecordingsUploadTaskHandlerUpdate::Task(review) => {
+                        RecordingsUploadTaskHandlerCommand::Task(review, confirm_sender) => {
                             self.register_review_update(review).await;
+                            if let Some(sender) = confirm_sender {
+                                if sender.send(()).is_err() {
+                                    tracing::error!("CRITICAL: Oneshot confirmation sender for a task in {STRUCT_NAME} failed to send. This indicates a race condition.");
+                                }
+                            }
+                        }
+                        RecordingsUploadTaskHandlerCommand::GetTaskCount(result_sender) => {
+                            if result_sender.send(self.running_tasks.len()).is_err() {
+                                tracing::error!("CRITICAL: Oneshot get tasks size sender for a task in {STRUCT_NAME} failed to send. This indicates a race condition.");
+                            }
                         }
                     }
                 }
@@ -157,3 +174,6 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests;
