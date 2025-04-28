@@ -14,6 +14,9 @@ use review_with_clip::ReviewWithClip;
 use std::{path::PathBuf, sync::Arc};
 use utils::time_getter::TimeGetter;
 
+pub const MAX_UPLOAD_ATTEMPTS: u32 = 3;
+const MAX_DELETE_ATTEMPTS: u32 = 5;
+
 #[derive(thiserror::Error, Debug, Clone, PartialEq, Eq)]
 pub enum ReviewUploadError {
     #[error("Frigate API construction failed with error: {0}")]
@@ -113,7 +116,7 @@ where
                         RemoteFileOp::Upload(rec),
                         self.path_descriptors.path_descriptors.as_ref().clone(),
                         self.file_sender_maker.clone(),
-                        3,
+                        MAX_UPLOAD_ATTEMPTS,
                     )
                     .await
                     .map_err(|e| ReviewUploadError::DeletingAltFile(e.to_string()))?;
@@ -125,7 +128,7 @@ where
                         RemoteFileOp::DeleteFileIfExists(alt_path),
                         self.path_descriptors.path_descriptors.as_ref().clone(),
                         self.file_sender_maker.clone(),
-                        3,
+                        MAX_DELETE_ATTEMPTS,
                     )
                     .await
                     .map_err(|e| ReviewUploadError::RecordingUpload(e.to_string()))?;
