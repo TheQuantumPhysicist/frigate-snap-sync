@@ -27,7 +27,7 @@ pub struct SyncSystem<F, S> {
     frigate_api_config: Arc<FrigateApiConfig>,
     frigate_api_maker: Arc<F>,
     file_sender_maker: Arc<S>,
-    tasks_handles: FuturesUnordered<JoinHandle<()>>,
+    snapshots_tasks_handles: FuturesUnordered<JoinHandle<()>>,
     stop_receiver: Option<UnboundedReceiver<()>>,
 }
 
@@ -48,7 +48,7 @@ where
             config,
             frigate_api_config: Arc::new(frigate_api_config),
             frigate_api_maker: Arc::new(frigate_api_maker),
-            tasks_handles: FuturesUnordered::default(),
+            snapshots_tasks_handles: FuturesUnordered::default(),
             file_sender_maker: Arc::new(file_sender_maker),
             stop_receiver,
         }
@@ -96,7 +96,7 @@ where
                     self.on_mqtt_data_received(data, &rec_updates_sender);
                 },
 
-                Some(task_result) = self.tasks_handles.next() => {
+                Some(task_result) = self.snapshots_tasks_handles.next() => {
                     match task_result {
                         Ok(()) => tracing::info!("Task joined successfully"),
                         Err(e) => tracing::error!("Task joined with error: {e}"),
@@ -275,6 +275,6 @@ where
             let task = SnapshotUploadTask::new(snapshot, file_sender_maker, path_descriptors);
             task.launch();
         });
-        self.tasks_handles.push(handle);
+        self.snapshots_tasks_handles.push(handle);
     }
 }
