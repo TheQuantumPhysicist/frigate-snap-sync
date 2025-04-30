@@ -14,7 +14,10 @@ use mqtt_handler::{
 use recording_upload_task::{RecordingTaskHandler, RecordingsUploadTaskHandlerCommand};
 use snapshot_upload_task::SnapshotUploadTask;
 use std::{path::Path, sync::Arc};
-use tokio::{sync::mpsc::UnboundedReceiver, task::JoinHandle};
+use tokio::{
+    sync::mpsc::{UnboundedReceiver, UnboundedSender},
+    task::JoinHandle,
+};
 use traits::{FileSenderMaker, FrigateApiMaker};
 use utils::struct_name;
 
@@ -27,6 +30,10 @@ pub struct SyncSystem<F, S> {
     frigate_api_config: Arc<FrigateApiConfig>,
     frigate_api_maker: Arc<F>,
     file_sender_maker: Arc<S>,
+
+    rec_updates_sender: UnboundedSender<RecordingsUploadTaskHandlerCommand>,
+    rec_task_join_handler: Option<JoinHandle<()>>,
+
     snapshots_tasks_handles: FuturesUnordered<JoinHandle<()>>,
     stop_receiver: Option<UnboundedReceiver<()>>,
 }
@@ -43,13 +50,44 @@ where
         stop_receiver: Option<UnboundedReceiver<()>>,
     ) -> Self {
         let frigate_api_config = FrigateApiConfig::from(&config);
+
+        let frigate_api_config = frigate_api_config.clone();
+        let path_descriptors = config.upload_destinations().clone();
+
+        let frigate_api_maker = Arc::new(frigate_api_maker);
+        let frigate_api_config = Arc::new(frigate_api_config);
+        let file_sender_maker = Arc::new(file_sender_maker);
+
+        let frigate_api_maker_inner = frigate_api_maker.clone();
+        let frigate_api_config_inner = frigate_api_config.clone();
+        let file_sender_maker_inner = file_sender_maker.clone();
+
+        let (rec_updates_sender, rec_updates_receiver) = tokio::sync::mpsc::unbounded_channel();
+        let rec_handler_task = tokio::task::spawn(async move {
+            RecordingTaskHandler::new(
+                rec_updates_receiver,
+                frigate_api_config_inner,
+                frigate_api_maker_inner,
+                file_sender_maker_inner,
+                path_descriptors,
+                None,
+                None,
+            )
+            .run()
+            .await;
+        });
+
         Self {
             cameras_state: CamerasState::default(),
             config,
-            frigate_api_config: Arc::new(frigate_api_config),
-            frigate_api_maker: Arc::new(frigate_api_maker),
+            frigate_api_config,
+            frigate_api_maker,
             snapshots_tasks_handles: FuturesUnordered::default(),
-            file_sender_maker: Arc::new(file_sender_maker),
+            file_sender_maker,
+
+            rec_updates_sender,
+            rec_task_join_handler: Some(rec_handler_task),
+
             stop_receiver,
         }
     }
@@ -65,26 +103,6 @@ where
 
         self.test_file_senders().await;
 
-        let frigate_api_config = self.frigate_api_config.clone();
-        let frigate_api_maker = self.frigate_api_maker.clone();
-        let file_sender_maker = self.file_sender_maker.clone();
-        let path_descriptors = self.config.upload_destinations().clone();
-
-        let (rec_updates_sender, rec_updates_receiver) = tokio::sync::mpsc::unbounded_channel();
-        let rec_handler_task = tokio::task::spawn(async move {
-            RecordingTaskHandler::new(
-                rec_updates_receiver,
-                frigate_api_config,
-                frigate_api_maker,
-                file_sender_maker,
-                path_descriptors,
-                None,
-                None,
-            )
-            .run()
-            .await;
-        });
-
         loop {
             let stop_receiver = match self.stop_receiver.as_mut() {
                 Some(receiver) => receiver.recv().boxed(),
@@ -93,7 +111,7 @@ where
 
             tokio::select! {
                 Some(data) = mqtt_data_receiver.recv() => {
-                    self.on_mqtt_data_received(data, &rec_updates_sender);
+                    self.on_mqtt_data_received(data);
                 },
 
                 Some(task_result) = self.snapshots_tasks_handles.next() => {
@@ -115,10 +133,15 @@ where
         mqtt_handler.stop();
         mqtt_handler.wait().await;
 
-        rec_updates_sender
+        self.rec_updates_sender
             .send(RecordingsUploadTaskHandlerCommand::Stop)
             .expect("Sending stop signal for recordings handler failed");
-        match rec_handler_task.await {
+        match self
+            .rec_task_join_handler
+            .take()
+            .expect("This is taken exactly once")
+            .await
+        {
             Ok(()) => tracing::info!("Joining recordings handler task completed successfully."),
             Err(e) => tracing::error!("Failed to join recordings handler task: {e}"),
         }
@@ -126,11 +149,7 @@ where
         Ok(())
     }
 
-    fn on_mqtt_data_received(
-        &mut self,
-        data: CapturedPayloads,
-        rec_updates_sender: &tokio::sync::mpsc::UnboundedSender<RecordingsUploadTaskHandlerCommand>,
-    ) {
+    fn on_mqtt_data_received(&mut self, data: CapturedPayloads) {
         match data {
             CapturedPayloads::CameraRecordingsState(recordings_state) => {
                 tracing::info!(
@@ -186,7 +205,8 @@ where
                     let id = review.id().to_string();
                     tracing::debug!("Sending review for camera {camera_name} with id {id}");
 
-                    let send_res = rec_updates_sender
+                    let send_res = self
+                        .rec_updates_sender
                         .send(RecordingsUploadTaskHandlerCommand::Task(review, None));
 
                     match send_res {
@@ -267,7 +287,7 @@ where
         }
     }
 
-    pub fn launch_snapshot_upload_task(&self, snapshot: Snapshot) {
+    fn launch_snapshot_upload_task(&self, snapshot: Snapshot) {
         let path_descriptors = self.config.upload_destinations().clone();
         let file_sender_maker = self.file_sender_maker.clone();
         let handle = tokio::task::spawn(async move {
