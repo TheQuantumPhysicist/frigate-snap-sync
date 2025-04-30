@@ -1,6 +1,6 @@
 use super::RecordingTaskHandler;
 use crate::{
-    config::PathDescriptors, system::recording_upload_task::RecordingsUploadTaskHandlerCommand,
+    config::PathDescriptors, system::recording_upload_handler::RecordingsUploadTaskHandlerCommand,
 };
 use file_sender::{make_inmemory_filesystem, path_descriptor::PathDescriptor};
 use frigate_api_caller::{config::FrigateApiConfig, traits::FrigateApi};

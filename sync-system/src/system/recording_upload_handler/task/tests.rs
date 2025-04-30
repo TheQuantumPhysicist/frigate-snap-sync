@@ -1,5 +1,5 @@
 use super::*;
-use crate::system::recording_upload_task::task::file_upload::MAX_UPLOAD_ATTEMPTS;
+use crate::system::recording_upload_handler::task::file_upload::MAX_UPLOAD_ATTEMPTS;
 use file_sender::{
     make_inmemory_filesystem, path_descriptor::PathDescriptor, traits::StoreDestination,
 };

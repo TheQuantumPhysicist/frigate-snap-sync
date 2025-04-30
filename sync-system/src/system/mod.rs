@@ -1,5 +1,5 @@
 mod common;
-mod recording_upload_task;
+mod recording_upload_handler;
 mod snapshot_upload_task;
 pub mod traits;
 
@@ -14,7 +14,7 @@ use mqtt_handler::{
     config::MqttHandlerConfig,
     types::{CapturedPayloads, snapshot::Snapshot},
 };
-use recording_upload_task::{RecordingTaskHandler, RecordingsUploadTaskHandlerCommand};
+use recording_upload_handler::{RecordingTaskHandler, RecordingsUploadTaskHandlerCommand};
 use snapshot_upload_task::SnapshotUploadTask;
 use std::{path::Path, sync::Arc};
 use tokio::{
