@@ -15,7 +15,7 @@ use mqtt_handler::{
     types::{CapturedPayloads, snapshot::Snapshot},
 };
 use recording_upload_handler::{RecordingTaskHandler, RecordingsUploadTaskHandlerCommand};
-use snapshot_upload_task::SnapshotUploadTask;
+use snapshot_upload_task::task::SnapshotUploadTask;
 use std::{path::Path, sync::Arc};
 use tokio::{
     sync::mpsc::{UnboundedReceiver, UnboundedSender},
