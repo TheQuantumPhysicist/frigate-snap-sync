@@ -3,7 +3,10 @@ mod recording_upload_task;
 mod snapshot_upload_task;
 pub mod traits;
 
-use crate::{config::VideoSyncConfig, state::CamerasState};
+use crate::{
+    config::{PathDescriptors, VideoSyncConfig},
+    state::CamerasState,
+};
 use file_sender::{path_descriptor::PathDescriptor, traits::StoreDestination};
 use frigate_api_caller::{config::FrigateApiConfig, traits::FrigateApi};
 use futures::{FutureExt, StreamExt, stream::FuturesUnordered};
@@ -27,6 +30,7 @@ const SLEEP_TIME_ON_API_ERROR: std::time::Duration = std::time::Duration::from_s
 pub struct SyncSystem<F, S> {
     cameras_state: CamerasState,
     config: VideoSyncConfig,
+
     frigate_api_config: Arc<FrigateApiConfig>,
     frigate_api_maker: Arc<F>,
     file_sender_maker: Arc<S>,
@@ -58,32 +62,25 @@ where
         let frigate_api_config = Arc::new(frigate_api_config);
         let file_sender_maker = Arc::new(file_sender_maker);
 
-        let frigate_api_maker_inner = frigate_api_maker.clone();
-        let frigate_api_config_inner = frigate_api_config.clone();
-        let file_sender_maker_inner = file_sender_maker.clone();
-
         let (rec_updates_sender, rec_updates_receiver) = tokio::sync::mpsc::unbounded_channel();
-        let rec_handler_task = tokio::task::spawn(async move {
-            RecordingTaskHandler::new(
-                rec_updates_receiver,
-                frigate_api_config_inner,
-                frigate_api_maker_inner,
-                file_sender_maker_inner,
-                path_descriptors,
-                None,
-                None,
-            )
-            .run()
-            .await;
-        });
+        let rec_handler_task = Self::run_reviews_task_handler(
+            rec_updates_receiver,
+            frigate_api_maker.clone(),
+            frigate_api_config.clone(),
+            file_sender_maker.clone(),
+            path_descriptors,
+        );
 
         Self {
             cameras_state: CamerasState::default(),
             config,
+
+            // TODO: Perhaps these don't need to be here after making snapshots launch their own task handler
             frigate_api_config,
             frigate_api_maker,
-            snapshots_tasks_handles: FuturesUnordered::default(),
             file_sender_maker,
+
+            snapshots_tasks_handles: FuturesUnordered::default(),
 
             rec_updates_sender,
             rec_task_join_handler: Some(rec_handler_task),
@@ -296,5 +293,27 @@ where
             task.launch();
         });
         self.snapshots_tasks_handles.push(handle);
+    }
+
+    fn run_reviews_task_handler(
+        rec_updates_receiver: UnboundedReceiver<RecordingsUploadTaskHandlerCommand>,
+        frigate_api_maker: Arc<F>,
+        frigate_api_config: Arc<FrigateApiConfig>,
+        file_sender_maker: Arc<S>,
+        path_descriptors: PathDescriptors,
+    ) -> JoinHandle<()> {
+        tokio::task::spawn(async move {
+            RecordingTaskHandler::new(
+                rec_updates_receiver,
+                frigate_api_config,
+                frigate_api_maker,
+                file_sender_maker,
+                path_descriptors,
+                None,
+                None,
+            )
+            .run()
+            .await;
+        })
     }
 }
