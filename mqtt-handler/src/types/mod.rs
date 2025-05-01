@@ -18,7 +18,7 @@ use snapshots_state::SnapshotsState;
 pub enum CapturedPayloads {
     CameraRecordingsState(RecordingsState),
     CameraSnapshotsState(SnapshotsState),
-    Snapshot(Snapshot),
+    Snapshot(Arc<Snapshot>),
     Reviews(Arc<dyn ReviewProps>),
 }
 
@@ -47,7 +47,7 @@ impl CapturedPayloads {
 
         if let Some(o) = Snapshot::from_topic_parts(&topic_parts, payload) {
             tracing::debug!("Parsed success: Snapshot");
-            return Some(Self::Snapshot(o));
+            return Some(Self::Snapshot(Arc::new(o)));
         }
 
         if let Some(o) = Reviews::from_topic_parts(&topic_parts, payload) {
@@ -77,7 +77,7 @@ impl CapturedPayloads {
     }
 
     #[must_use]
-    pub fn into_snapshot(self) -> Option<Snapshot> {
+    pub fn into_snapshot(self) -> Option<Arc<Snapshot>> {
         match self {
             CapturedPayloads::Snapshot(s) => Some(s),
             _ => None,

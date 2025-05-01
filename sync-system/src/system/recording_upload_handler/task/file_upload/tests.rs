@@ -104,7 +104,7 @@ async fn basic_upload_in_mocks() {
         TimeGetter::default(),
     );
 
-    review_upload.run().await.unwrap();
+    review_upload.start().await.unwrap();
 }
 
 #[tokio::test]
@@ -158,7 +158,7 @@ async fn basic_upload_in_virtual_filesystem() {
             TimeGetter::default(),
         );
 
-        review_upload.run().await.unwrap();
+        review_upload.start().await.unwrap();
     }
 
     // Test the state of the files in the virtual file system
@@ -236,7 +236,7 @@ async fn basic_upload_in_virtual_filesystem() {
             TimeGetter::default(),
         );
 
-        review_upload.run().await.unwrap();
+        review_upload.start().await.unwrap();
     }
 
     // Test the state of the files in the virtual file system

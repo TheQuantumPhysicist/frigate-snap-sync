@@ -9,13 +9,13 @@ use crate::{
 };
 use file_sender::{path_descriptor::PathDescriptor, traits::StoreDestination};
 use frigate_api_caller::{config::FrigateApiConfig, traits::FrigateApi};
-use futures::{FutureExt, StreamExt, stream::FuturesUnordered};
+use futures::FutureExt;
 use mqtt_handler::{
     config::MqttHandlerConfig,
-    types::{CapturedPayloads, snapshot::Snapshot},
+    types::{CapturedPayloads, reviews::ReviewProps, snapshot::Snapshot},
 };
-use recording_upload_handler::{RecordingTaskHandler, RecordingsUploadTaskHandlerCommand};
-use snapshot_upload_task::task::SnapshotUploadTask;
+use recording_upload_handler::{RecordingsTaskHandler, RecordingsUploadTaskHandlerCommand};
+use snapshot_upload_task::{SnapshotsTaskHandler, SnapshotsUploadTaskHandlerCommand};
 use std::{path::Path, sync::Arc};
 use tokio::{
     sync::mpsc::{UnboundedReceiver, UnboundedSender},
@@ -36,9 +36,10 @@ pub struct SyncSystem<F, S> {
     file_sender_maker: Arc<S>,
 
     rec_updates_sender: UnboundedSender<RecordingsUploadTaskHandlerCommand>,
-    rec_task_join_handler: Option<JoinHandle<()>>,
+    snapshots_updates_sender: UnboundedSender<SnapshotsUploadTaskHandlerCommand>,
 
-    snapshots_tasks_handles: FuturesUnordered<JoinHandle<()>>,
+    join_handles: Vec<(String, JoinHandle<()>)>,
+
     stop_receiver: Option<UnboundedReceiver<()>>,
 }
 
@@ -68,28 +69,40 @@ where
             frigate_api_maker.clone(),
             frigate_api_config.clone(),
             file_sender_maker.clone(),
+            path_descriptors.clone(),
+        );
+
+        let (snapshots_updates_sender, snapshots_updates_receiver) =
+            tokio::sync::mpsc::unbounded_channel();
+        let snapshots_task_join_handler = Self::run_snapshots_task_handler(
+            snapshots_updates_receiver,
+            file_sender_maker.clone(),
             path_descriptors,
         );
+
+        let join_handles = vec![
+            ("recordings handler".to_string(), rec_handler_task),
+            ("snapshots handler".to_string(), snapshots_task_join_handler),
+        ];
 
         Self {
             cameras_state: CamerasState::default(),
             config,
 
-            // TODO: Perhaps these don't need to be here after making snapshots launch their own task handler
             frigate_api_config,
             frigate_api_maker,
             file_sender_maker,
 
-            snapshots_tasks_handles: FuturesUnordered::default(),
-
             rec_updates_sender,
-            rec_task_join_handler: Some(rec_handler_task),
+            snapshots_updates_sender,
+
+            join_handles,
 
             stop_receiver,
         }
     }
 
-    pub async fn run(&mut self) -> anyhow::Result<()> {
+    pub async fn start(&mut self) -> anyhow::Result<()> {
         let mqtt_config = MqttHandlerConfig::from(&self.config);
 
         let (mqtt_data_sender, mut mqtt_data_receiver) = tokio::sync::mpsc::unbounded_channel();
@@ -111,13 +124,6 @@ where
                     self.on_mqtt_data_received(data);
                 },
 
-                Some(task_result) = self.snapshots_tasks_handles.next() => {
-                    match task_result {
-                        Ok(()) => tracing::info!("Task joined successfully"),
-                        Err(e) => tracing::error!("Task joined with error: {e}"),
-                    }
-                }
-
                 Some(()) = stop_receiver => {
                     tracing::info!("Received stop signal to stop {STRUCT_NAME}.");
                     break;
@@ -125,7 +131,7 @@ where
             }
         }
 
-        tracing::info!("Reached the end of {STRUCT_NAME} event loop.");
+        tracing::info!("Reached the end of {STRUCT_NAME} event loop. Unwinding all task managers.");
 
         mqtt_handler.stop();
         mqtt_handler.wait().await;
@@ -133,15 +139,19 @@ where
         self.rec_updates_sender
             .send(RecordingsUploadTaskHandlerCommand::Stop)
             .expect("Sending stop signal for recordings handler failed");
-        match self
-            .rec_task_join_handler
-            .take()
-            .expect("This is taken exactly once")
-            .await
-        {
-            Ok(()) => tracing::info!("Joining recordings handler task completed successfully."),
-            Err(e) => tracing::error!("Failed to join recordings handler task: {e}"),
+
+        self.snapshots_updates_sender
+            .send(SnapshotsUploadTaskHandlerCommand::Stop)
+            .expect("Sending stop signal for snapshots handler failed");
+
+        for (task_name, join_handle) in &mut self.join_handles {
+            match join_handle.await {
+                Ok(()) => tracing::info!("Joining {task_name} task completed successfully"),
+                Err(e) => tracing::error!("CRITICAL: Failed to join {task_name} task: {e}"),
+            }
         }
+
+        tracing::info!("Unwinding of {STRUCT_NAME} done.");
 
         Ok(())
     }
@@ -175,17 +185,7 @@ where
                     snapshot.image.as_bytes().len()
                 );
 
-                if self
-                    .cameras_state
-                    .camera_snapshots_state(&snapshot.camera_label)
-                {
-                    self.launch_snapshot_upload_task(snapshot);
-                } else {
-                    tracing::debug!(
-                        "Ignoring snapshot from camera: {} - Snapshots are disabled in Frigate.",
-                        snapshot.camera_label
-                    );
-                }
+                self.handle_snapshot_payload(snapshot);
             }
             CapturedPayloads::Reviews(review) => {
                 tracing::info!(
@@ -194,32 +194,7 @@ where
                     review.id()
                 );
 
-                if self
-                    .cameras_state
-                    .camera_recordings_state(review.camera_name())
-                {
-                    let camera_name = review.camera_name().to_string();
-                    let id = review.id().to_string();
-                    tracing::debug!("Sending review for camera {camera_name} with id {id}");
-
-                    let send_res = self
-                        .rec_updates_sender
-                        .send(RecordingsUploadTaskHandlerCommand::Task(review, None));
-
-                    match send_res {
-                        Ok(()) => tracing::trace!(
-                            "Sent new task successfully for camera {camera_name} with id {id}"
-                        ),
-                        Err(e) => tracing::error!(
-                            "CRITICAL: Failed to send message to recording upload handler: {e}"
-                        ),
-                    }
-                } else {
-                    tracing::debug!(
-                        "Ignoring review from camera: `{}` - Recordings are disabled in Frigate.",
-                        review.camera_name()
-                    );
-                }
+                self.handle_review_payload(review);
             }
         }
     }
@@ -229,6 +204,7 @@ where
     }
 
     #[allow(clippy::type_complexity)]
+    #[must_use]
     pub fn make_file_senders(
         &self,
     ) -> Vec<(
@@ -284,15 +260,63 @@ where
         }
     }
 
-    fn launch_snapshot_upload_task(&self, snapshot: Snapshot) {
-        let path_descriptors = self.config.upload_destinations().clone();
-        let file_sender_maker = self.file_sender_maker.clone();
-        let handle = tokio::task::spawn(async move {
-            let snapshot = snapshot;
-            let task = SnapshotUploadTask::new(snapshot, file_sender_maker, path_descriptors);
-            task.launch();
-        });
-        self.snapshots_tasks_handles.push(handle);
+    fn handle_snapshot_payload(&mut self, snapshot: Arc<Snapshot>) {
+        if self
+            .cameras_state
+            .camera_snapshots_state(&snapshot.camera_label)
+        {
+            let camera_name = snapshot.camera_label.clone();
+            tracing::debug!("Sending snapshot for camera {camera_name}");
+
+            let send_res = self
+                .snapshots_updates_sender
+                .send(SnapshotsUploadTaskHandlerCommand::Task(snapshot, None));
+
+            match send_res {
+                Ok(()) => {
+                    tracing::trace!(
+                        "Sent new task snapshot upload task successfully for camera {camera_name}"
+                    );
+                }
+                Err(e) => tracing::error!(
+                    "CRITICAL: Failed to send message to snapshots upload handler: {e}"
+                ),
+            }
+        } else {
+            tracing::debug!(
+                "Ignoring snapshot from camera: {} - Snapshots are disabled in Frigate.",
+                snapshot.camera_label
+            );
+        }
+    }
+
+    fn handle_review_payload(&mut self, review: Arc<dyn ReviewProps>) {
+        if self
+            .cameras_state
+            .camera_recordings_state(review.camera_name())
+        {
+            let camera_name = review.camera_name().to_string();
+            let id = review.id().to_string();
+            tracing::debug!("Sending review for camera {camera_name} with id {id}");
+
+            let send_res = self
+                .rec_updates_sender
+                .send(RecordingsUploadTaskHandlerCommand::Task(review, None));
+
+            match send_res {
+                Ok(()) => tracing::trace!(
+                    "Sent new recording upload task successfully for camera {camera_name} with id {id}"
+                ),
+                Err(e) => tracing::error!(
+                    "CRITICAL: Failed to send message to recordings upload handler: {e}"
+                ),
+            }
+        } else {
+            tracing::debug!(
+                "Ignoring review from camera: `{}` - Recordings are disabled in Frigate.",
+                review.camera_name()
+            );
+        }
     }
 
     fn run_reviews_task_handler(
@@ -303,7 +327,7 @@ where
         path_descriptors: PathDescriptors,
     ) -> JoinHandle<()> {
         tokio::task::spawn(async move {
-            RecordingTaskHandler::new(
+            RecordingsTaskHandler::new(
                 rec_updates_receiver,
                 frigate_api_config,
                 frigate_api_maker,
@@ -315,5 +339,15 @@ where
             .run()
             .await;
         })
+    }
+
+    fn run_snapshots_task_handler(
+        command_receiver: UnboundedReceiver<SnapshotsUploadTaskHandlerCommand>,
+        file_sender_maker: Arc<S>,
+        path_descriptors: PathDescriptors,
+    ) -> JoinHandle<()> {
+        tokio::task::spawn(
+            SnapshotsTaskHandler::new(command_receiver, file_sender_maker, path_descriptors).run(),
+        )
     }
 }

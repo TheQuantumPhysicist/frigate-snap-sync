@@ -78,7 +78,7 @@ where
         }
     }
 
-    pub async fn run(&mut self) -> Result<(), ReviewUploadError> // The result indicates whether all the steps have finished successfully for the file, since review files is uploaded sequentially
+    pub async fn start(&mut self) -> Result<(), ReviewUploadError> // The result indicates whether all the steps have finished successfully for the file, since review files is uploaded sequentially
     {
         let id = self.review.id().to_string();
 

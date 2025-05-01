@@ -15,14 +15,14 @@ const MAX_ATTEMPT_COUNT: u32 = 128;
 
 #[must_use]
 pub struct SnapshotUploadTask<S> {
-    snapshot: Snapshot,
+    snapshot: Arc<dyn UploadableFile>,
     file_sender_maker: Arc<S>,
     file_senders_path_descriptors: PathDescriptors,
 }
 
 impl<S: FileSenderMaker> SnapshotUploadTask<S> {
     pub fn new(
-        snapshot: Snapshot,
+        snapshot: Arc<dyn UploadableFile>,
         file_sender_maker: Arc<S>,
         file_senders_path_descriptors: PathDescriptors,
     ) -> Self {
@@ -33,13 +33,13 @@ impl<S: FileSenderMaker> SnapshotUploadTask<S> {
         }
     }
 
-    async fn launch_inner(
-        file: impl UploadableFile,
+    async fn run_inner(
+        file: Arc<dyn UploadableFile>,
         path_descriptors: Vec<Arc<PathDescriptor>>,
         file_sender_maker: Arc<S>,
     ) {
         let _ = remote_file_op(
-            RemoteFileOp::Upload(&file),
+            RemoteFileOp::Upload(file.as_ref()),
             path_descriptors,
             file_sender_maker,
             MAX_ATTEMPT_COUNT,
@@ -48,7 +48,7 @@ impl<S: FileSenderMaker> SnapshotUploadTask<S> {
         .inspect_err(|e| tracing::error!("{e}"));
     }
 
-    pub fn launch(self) -> JoinHandle<()> {
+    pub fn run(self) -> JoinHandle<()> {
         let snapshot = self.snapshot;
         let path_descriptors = self
             .file_senders_path_descriptors
@@ -57,7 +57,7 @@ impl<S: FileSenderMaker> SnapshotUploadTask<S> {
             .clone();
         let file_sender_maker = self.file_sender_maker;
 
-        tokio::task::spawn(Self::launch_inner(
+        tokio::task::spawn(Self::run_inner(
             snapshot,
             path_descriptors,
             file_sender_maker,

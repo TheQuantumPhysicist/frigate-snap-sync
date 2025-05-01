@@ -58,7 +58,7 @@ pub async fn run() -> anyhow::Result<()> {
         Some(stop_receiver),
     );
 
-    sync_sys.run().await?;
+    sync_sys.start().await?;
 
     Ok(())
 }

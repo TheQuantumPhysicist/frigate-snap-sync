@@ -1,4 +1,4 @@
-use super::RecordingTaskHandler;
+use super::RecordingsTaskHandler;
 use crate::{
     config::PathDescriptors, system::recording_upload_handler::RecordingsUploadTaskHandlerCommand,
 };
@@ -106,7 +106,7 @@ async fn recordings_task_handler(random_seed: Seed) {
 
     let file_sender_maker = Arc::new(move |_: &Arc<PathDescriptor>| Ok(file_sender_inner.clone()));
 
-    let task = RecordingTaskHandler::new(
+    let task = RecordingsTaskHandler::new(
         cmd_receiver,
         Arc::new(frigate_config),
         frigate_api_maker,
@@ -262,7 +262,7 @@ async fn recordings_task_handler_shutdown(random_seed: Seed) {
 
     let file_sender_maker = Arc::new(move |_: &Arc<PathDescriptor>| Ok(file_sender_inner.clone()));
 
-    let task = RecordingTaskHandler::new(
+    let task = RecordingsTaskHandler::new(
         cmd_receiver,
         Arc::new(frigate_config),
         frigate_api_maker,
@@ -337,7 +337,7 @@ async fn recordings_task_handler_timeout_loses_task(random_seed: Seed) {
     let retry_period = std::time::Duration::from_millis(500);
     let total_wait_period = 2 * max_retries * retry_period; // multiply by 2 for safety
 
-    let task = RecordingTaskHandler::new(
+    let task = RecordingsTaskHandler::new(
         cmd_receiver,
         Arc::new(frigate_config),
         frigate_api_maker,

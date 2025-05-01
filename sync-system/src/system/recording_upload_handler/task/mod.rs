@@ -213,7 +213,7 @@ where
             return UploadConclusion::NotDone;
         };
 
-        let result = current_upload_process.run().await;
+        let result = current_upload_process.start().await;
 
         match result {
             Ok(()) => {

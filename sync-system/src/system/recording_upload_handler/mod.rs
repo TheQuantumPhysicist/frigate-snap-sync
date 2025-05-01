@@ -19,7 +19,7 @@ type TaskMap = HashMap<
 
 /// All recordings uploads are handled in this struct.
 #[must_use]
-pub struct RecordingTaskHandler<F, S> {
+pub struct RecordingsTaskHandler<F, S> {
     /// Commands that control this struct
     command_receiver: tokio::sync::mpsc::UnboundedReceiver<RecordingsUploadTaskHandlerCommand>,
     /// All the upload tasks futures running are here and are to be eventually joined
@@ -40,17 +40,17 @@ pub struct RecordingTaskHandler<F, S> {
     stopped: bool,
 }
 
-#[allow(dead_code)]
 pub enum RecordingsUploadTaskHandlerCommand {
     /// Send a new Review to process its recording
     Task(Arc<dyn ReviewProps>, Option<oneshot::Sender<()>>),
     /// Get the number of outstanding upload tasks running
+    #[allow(dead_code)]
     GetTaskCount(oneshot::Sender<usize>),
     /// Stops the task handler by shutting down the event loop
     Stop,
 }
 
-impl<F, S> RecordingTaskHandler<F, S>
+impl<F, S> RecordingsTaskHandler<F, S>
 where
     F: FrigateApiMaker,
     S: FileSenderMaker,
