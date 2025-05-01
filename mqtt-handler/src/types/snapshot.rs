@@ -3,7 +3,6 @@ use std::path::PathBuf;
 #[must_use]
 #[derive(Debug, Clone)]
 pub struct Snapshot {
-    pub image: image::DynamicImage,
     pub image_bytes: Vec<u8>, // a raw copy of the image, to save it to disk
     pub camera_label: String,
     pub object_name: String,
@@ -16,7 +15,7 @@ impl Snapshot {
         if topic_parts.len() > 3 && topic_parts[3] == "snapshot" {
             let camera_label = topic_parts[1].to_string();
             let object_name = topic_parts[2].to_string();
-            let snapshot_image =
+            let _snapshot_image =
                 match image::load_from_memory_with_format(payload, image::ImageFormat::Jpeg) {
                     Ok(img) => img,
                     Err(e) => {
@@ -28,7 +27,6 @@ impl Snapshot {
                     }
                 };
             Some(Self {
-                image: snapshot_image,
                 image_bytes: payload.to_vec(),
                 camera_label,
                 object_name,

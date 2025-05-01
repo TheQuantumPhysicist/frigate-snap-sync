@@ -5,10 +5,8 @@ use crate::{
         traits::FileSenderMaker,
     },
 };
-use file_sender::path_descriptor::PathDescriptor;
 use mqtt_handler::types::snapshot::Snapshot;
 use std::{path::PathBuf, sync::Arc};
-use tokio::task::JoinHandle;
 use utils::time::Time;
 
 const MAX_ATTEMPT_COUNT: u32 = 128;
@@ -33,22 +31,7 @@ impl<S: FileSenderMaker> SnapshotUploadTask<S> {
         }
     }
 
-    async fn run_inner(
-        file: Arc<dyn UploadableFile>,
-        path_descriptors: Vec<Arc<PathDescriptor>>,
-        file_sender_maker: Arc<S>,
-    ) {
-        let _ = remote_file_op(
-            RemoteFileOp::Upload(file.as_ref()),
-            path_descriptors,
-            file_sender_maker,
-            MAX_ATTEMPT_COUNT,
-        )
-        .await
-        .inspect_err(|e| tracing::error!("{e}"));
-    }
-
-    pub fn run(self) -> JoinHandle<()> {
+    pub async fn run(self) {
         let snapshot = self.snapshot;
         let path_descriptors = self
             .file_senders_path_descriptors
@@ -57,11 +40,14 @@ impl<S: FileSenderMaker> SnapshotUploadTask<S> {
             .clone();
         let file_sender_maker = self.file_sender_maker;
 
-        tokio::task::spawn(Self::run_inner(
-            snapshot,
+        let _ = remote_file_op(
+            RemoteFileOp::Upload(snapshot.as_ref()),
             path_descriptors,
             file_sender_maker,
-        ))
+            MAX_ATTEMPT_COUNT,
+        )
+        .await
+        .inspect_err(|e| tracing::error!("Snapshot remote op file error: {e}"));
     }
 }
 

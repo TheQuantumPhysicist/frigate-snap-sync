@@ -129,6 +129,7 @@ where
     Ok(result.into())
 }
 
+// A shallow version of a collection of `PathDescriptor` objects
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct PathDescriptors {
     pub path_descriptors: Arc<Vec<Arc<PathDescriptor>>>,

@@ -90,7 +90,6 @@ async fn recordings_task_handler(random_seed: Seed) {
 
     // Prepare the file sender
     let file_sender = make_inmemory_filesystem();
-    let file_sender_inner = file_sender.clone();
 
     // Prepare the API mock
     let mut frigate_api_mock = make_frigate_client_mock();
@@ -104,7 +103,7 @@ async fn recordings_task_handler(random_seed: Seed) {
     let frigate_api_mock: Arc<dyn FrigateApi> = Arc::new(frigate_api_mock);
     let frigate_api_maker = Arc::new(move |_: &FrigateApiConfig| Ok(frigate_api_mock.clone()));
 
-    let file_sender_maker = Arc::new(move |_: &Arc<PathDescriptor>| Ok(file_sender_inner.clone()));
+    let file_sender_maker = Arc::new(move |_: &Arc<PathDescriptor>| Ok(file_sender.clone()));
 
     let task = RecordingsTaskHandler::new(
         cmd_receiver,

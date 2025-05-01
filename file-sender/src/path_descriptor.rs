@@ -3,6 +3,7 @@ use std::{fmt::Display, path::PathBuf, str::FromStr};
 const LOCAL_PREFIX: &str = "local";
 const SFTP_PREFIX: &str = "sftp";
 
+/// Defines a destination to which an upload will be made
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PathDescriptor {
     Local(PathBuf),

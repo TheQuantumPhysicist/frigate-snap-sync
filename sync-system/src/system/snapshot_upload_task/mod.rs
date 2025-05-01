@@ -25,7 +25,7 @@ pub struct SnapshotsTaskHandler<S> {
 }
 
 pub enum SnapshotsUploadTaskHandlerCommand {
-    /// Send a new Review to process its recording
+    /// Send a new Review to process its snapshot
     Task(Arc<Snapshot>, Option<oneshot::Sender<()>>),
     /// Get the number of outstanding upload tasks running
     #[allow(dead_code)]
@@ -98,7 +98,7 @@ where
                 tracing::info!("Snapshot task joined successfully");
             }
             Err(e) => tracing::error!(
-                "CRITICAL. Recording task joined with error: {e}. This can lead to a memory leak!"
+                "CRITICAL. Snapshot task joined with error: {e}. This can lead to a memory leak!"
             ),
         }
     }
@@ -109,8 +109,11 @@ where
         let handle = tokio::task::spawn(async move {
             let snapshot = snapshot;
             let task = SnapshotUploadTask::new(snapshot, file_sender_maker, path_descriptors);
-            task.run();
+            task.run().await;
         });
         self.running_tasks.push(handle);
     }
 }
+
+#[cfg(test)]
+mod tests;

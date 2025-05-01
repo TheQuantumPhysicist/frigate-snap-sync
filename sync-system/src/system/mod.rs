@@ -182,7 +182,7 @@ where
                 tracing::info!(
                     "{STRUCT_NAME}: Received snapshot from camera: `{}`. Size: `{}`",
                     snapshot.camera_label,
-                    snapshot.image.as_bytes().len()
+                    snapshot.image_bytes.len()
                 );
 
                 self.handle_snapshot_payload(snapshot);
