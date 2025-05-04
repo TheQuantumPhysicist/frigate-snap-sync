@@ -53,8 +53,9 @@ pub async fn run() -> anyhow::Result<()> {
 
         let mut mqtt_handler = mqtt_handler::MqttHandler::new(mqtt_config, mqtt_data_sender)?;
 
-        let mut sync_sys = SyncSystem::new(
-            config,
+        let sync_sys = SyncSystem::new(
+            config.upload_destinations().clone(),
+            Arc::new(FrigateApiConfig::from(&config)),
             frigate_api_maker,
             file_sender_maker,
             mqtt_data_receiver,

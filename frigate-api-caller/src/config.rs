@@ -1,3 +1,4 @@
+#[must_use]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FrigateApiConfig {
     pub frigate_api_base_url: String,

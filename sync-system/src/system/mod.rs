@@ -3,10 +3,7 @@ mod recording_upload_handler;
 mod snapshot_upload_task;
 pub mod traits;
 
-use crate::{
-    config::{PathDescriptors, VideoSyncConfig},
-    state::CamerasState,
-};
+use crate::{config::PathDescriptors, state::CamerasState};
 use file_sender::{path_descriptor::PathDescriptor, traits::StoreDestination};
 use frigate_api_caller::{config::FrigateApiConfig, traits::FrigateApi};
 use futures::FutureExt;
@@ -26,7 +23,7 @@ const SLEEP_TIME_ON_API_ERROR: std::time::Duration = std::time::Duration::from_s
 
 pub struct SyncSystem<F, S> {
     cameras_state: CamerasState,
-    config: VideoSyncConfig,
+    upload_dests: PathDescriptors,
 
     frigate_api_config: Arc<FrigateApiConfig>,
     frigate_api_maker: Arc<F>,
@@ -47,19 +44,14 @@ where
     S: FileSenderMaker,
 {
     pub fn new(
-        config: VideoSyncConfig,
+        upload_dests: PathDescriptors,
+        frigate_api_config: Arc<FrigateApiConfig>,
         frigate_api_maker: F,
         file_sender_maker: S,
         mqtt_data_receiver: tokio::sync::mpsc::UnboundedReceiver<CapturedPayloads>,
         stop_receiver: Option<UnboundedReceiver<()>>,
     ) -> Self {
-        let frigate_api_config = FrigateApiConfig::from(&config);
-
-        let frigate_api_config = frigate_api_config.clone();
-        let path_descriptors = config.upload_destinations().clone();
-
         let frigate_api_maker = Arc::new(frigate_api_maker);
-        let frigate_api_config = Arc::new(frigate_api_config);
         let file_sender_maker = Arc::new(file_sender_maker);
 
         let (rec_updates_sender, rec_updates_receiver) = tokio::sync::mpsc::unbounded_channel();
@@ -68,7 +60,7 @@ where
             frigate_api_maker.clone(),
             frigate_api_config.clone(),
             file_sender_maker.clone(),
-            path_descriptors.clone(),
+            upload_dests.clone(),
         );
 
         let (snapshots_updates_sender, snapshots_updates_receiver) =
@@ -76,7 +68,7 @@ where
         let snapshots_task_join_handler = Self::run_snapshots_task_handler(
             snapshots_updates_receiver,
             file_sender_maker.clone(),
-            path_descriptors,
+            upload_dests.clone(),
         );
 
         let join_handles = vec![
@@ -86,7 +78,7 @@ where
 
         Self {
             cameras_state: CamerasState::default(),
-            config,
+            upload_dests,
 
             frigate_api_config,
             frigate_api_maker,
@@ -102,7 +94,7 @@ where
         }
     }
 
-    pub async fn start(&mut self) -> anyhow::Result<()> {
+    pub async fn start(mut self) -> anyhow::Result<()> {
         self.test_frigate_api_connection().await;
 
         self.test_file_senders().await;
@@ -202,8 +194,7 @@ where
         Arc<PathDescriptor>,
         anyhow::Result<Arc<dyn StoreDestination<Error = anyhow::Error>>>,
     )> {
-        self.config
-            .upload_destinations()
+        self.upload_dests
             .path_descriptors
             .iter()
             .map(|d| (d.clone(), (self.file_sender_maker)(d)))
@@ -342,3 +333,6 @@ where
         )
     }
 }
+
+#[cfg(test)]
+mod tests;
