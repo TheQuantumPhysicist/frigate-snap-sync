@@ -92,7 +92,6 @@ where
                             }
                         }
                         RecordingsUploadTaskHandlerCommand::Task(review, confirm_sender) => {
-                            // TODO: confirm sender should go through joining, in case the first attempt fails (like it's done for snapshots)
                             self.register_review_update(review).await;
                             if let Some(sender) = confirm_sender {
                                 if sender.send(()).is_err() {
@@ -152,7 +151,7 @@ where
         let handle = tokio::task::spawn(
             SingleRecordingUploadTask::new(
                 review,
-                Some(first_resolve_sender),
+                first_resolve_sender,
                 reviews_receiver,
                 None,
                 self.frigate_api_config.clone(),

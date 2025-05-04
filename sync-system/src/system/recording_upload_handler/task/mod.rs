@@ -26,9 +26,9 @@ pub struct SingleRecordingUploadTask<F, S> {
     /// The current review that is being processed for upload
     current_review: Arc<dyn ReviewProps>,
 
-    /// The first task sent, if provided, has to be resolved for this to receive a send,
+    /// The first task sent has to be resolved for this to receive a send,
     /// after having processed the very first review and the event loop has started.
-    /// This is an Option because it can be used only once, and then it's empty
+    /// This is an Option because it can be used only once (and consumes from self), and then it's empty
     first_review_resolved_sender: Option<oneshot::Sender<()>>,
 
     /// Updates about the this review is received through this channel
@@ -67,7 +67,7 @@ where
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         start_review: Arc<dyn ReviewProps>,
-        first_review_resolved_sender: Option<oneshot::Sender<()>>,
+        first_review_resolved_sender: oneshot::Sender<()>,
         reviews_receiver: ReviewsReceiver,
         end_review_resolved_sender: Option<oneshot::Sender<UploadConclusion>>,
 
@@ -81,7 +81,7 @@ where
     ) -> Self {
         Self {
             current_review: start_review, // The current one is the start one
-            first_review_resolved_sender,
+            first_review_resolved_sender: Some(first_review_resolved_sender),
             end_review_resolved_sender,
 
             reviews_receiver,

@@ -111,7 +111,7 @@ async fn recording_upload(random_seed: Seed) {
 
         let task = SingleRecordingUploadTask::new(
             Arc::new(review_new),
-            Some(first_resolve_sender),
+            first_resolve_sender,
             review_receiver,
             Some(end_sender),
             Arc::new(frigate_config),
@@ -356,7 +356,7 @@ async fn recording_upload_mocked(random_seed: Seed) {
 
         let task = SingleRecordingUploadTask::new(
             Arc::new(review_new),
-            Some(first_resolve_sender),
+            first_resolve_sender,
             review_receiver,
             Some(end_sender),
             Arc::new(frigate_config),
@@ -593,7 +593,7 @@ async fn recording_upload_mocked_failures_then_success(random_seed: Seed) {
 
         let task = SingleRecordingUploadTask::new(
             Arc::new(review_end),
-            Some(first_resolve_sender),
+            first_resolve_sender,
             review_receiver,
             Some(end_sender),
             Arc::new(frigate_config),
@@ -688,7 +688,7 @@ async fn recording_upload_mocked_failures_return_not_done(random_seed: Seed) {
 
         let task = SingleRecordingUploadTask::new(
             Arc::new(review_end),
-            Some(first_resolve_sender),
+            first_resolve_sender,
             review_receiver,
             Some(end_sender),
             Arc::new(frigate_config),
@@ -840,7 +840,7 @@ async fn recording_upload_mocked_failures_in_download_then_upload_leads_to_not_d
 
         let task = SingleRecordingUploadTask::new(
             Arc::new(review_end),
-            Some(first_resolve_sender),
+            first_resolve_sender,
             review_receiver,
             Some(end_sender),
             Arc::new(frigate_config),
