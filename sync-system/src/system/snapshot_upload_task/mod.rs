@@ -66,12 +66,7 @@ where
                             }
                         }
                         SnapshotsUploadTaskHandlerCommand::Task(snapshot, confirm_sender) => {
-                            self.launch_snapshot_upload_task(snapshot);
-                            if let Some(sender) = confirm_sender {
-                                if sender.send(()).is_err() {
-                                    tracing::error!("CRITICAL: Oneshot confirmation sender for a task in {STRUCT_NAME} failed to send. This indicates a race condition.");
-                                }
-                            }
+                            self.launch_snapshot_upload_task(snapshot, confirm_sender);
                         }
                         SnapshotsUploadTaskHandlerCommand::GetTaskCount(result_sender) => {
                             if result_sender.send(self.running_tasks.len()).is_err() {
@@ -83,12 +78,13 @@ where
 
                 Some(task_result) = self.running_tasks.next() => {
                     Self::on_task_joined(task_result);
-
-                    if self.running_tasks.is_empty() && self.stopped {
-                        break;
-                    }
                 }
             }
+        }
+
+        // Wrap all remaining tasks
+        while let Some(task_result) = self.running_tasks.next().await {
+            Self::on_task_joined(task_result);
         }
     }
 
@@ -97,19 +93,37 @@ where
             Ok(()) => {
                 tracing::info!("Snapshot task joined successfully");
             }
-            Err(e) => tracing::error!(
-                "CRITICAL. Snapshot task joined with error: {e}. This can lead to a memory leak!"
-            ),
+            Err(e) => {
+                tracing::error!(
+                    "CRITICAL. Snapshot task joined with error: {e}. This can lead to a memory leak!"
+                );
+
+                // We have to panic in tests on error, otherwise panics in tasks will be ignored
+                #[cfg(test)]
+                panic!("Panic occurred: {e}")
+            }
         }
     }
 
-    fn launch_snapshot_upload_task(&self, snapshot: Arc<Snapshot>) {
+    fn launch_snapshot_upload_task(
+        &self,
+        snapshot: Arc<Snapshot>,
+        confirm_sender: Option<oneshot::Sender<()>>,
+    ) {
         let path_descriptors = self.path_descriptors.clone();
         let file_sender_maker = self.file_sender_maker.clone();
         let handle = tokio::task::spawn(async move {
             let snapshot = snapshot;
             let task = SnapshotUploadTask::new(snapshot, file_sender_maker, path_descriptors);
             task.run().await;
+
+            if let Some(sender) = confirm_sender {
+                if sender.send(()).is_err() {
+                    tracing::error!(
+                        "CRITICAL: Oneshot confirmation sender for a task in {STRUCT_NAME} failed to send. This indicates a race condition."
+                    );
+                }
+            }
         });
         self.running_tasks.push(handle);
     }

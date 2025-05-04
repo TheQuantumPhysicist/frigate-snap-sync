@@ -102,6 +102,7 @@ async fn basic_upload_in_mocks() {
         file_sender_maker,
         path_descriptors,
         TimeGetter::default(),
+        std::time::Duration::from_millis(500),
     );
 
     review_upload.start().await.unwrap();
@@ -156,6 +157,7 @@ async fn basic_upload_in_virtual_filesystem() {
             file_sender_maker,
             path_descriptors,
             TimeGetter::default(),
+            std::time::Duration::from_millis(500),
         );
 
         review_upload.start().await.unwrap();
@@ -234,6 +236,7 @@ async fn basic_upload_in_virtual_filesystem() {
             file_sender_maker,
             path_descriptors,
             TimeGetter::default(),
+            std::time::Duration::from_millis(500),
         );
 
         review_upload.start().await.unwrap();

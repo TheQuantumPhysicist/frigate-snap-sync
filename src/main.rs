@@ -1,6 +1,8 @@
+use sync_system::runner::run;
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    sync_system::run().await?;
+    run().await?;
 
     Ok(())
 }

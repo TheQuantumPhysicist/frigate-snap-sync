@@ -13,6 +13,7 @@ use utils::time_getter::TimeGetter;
 
 const DEFAULT_RETRY_PERIOD: std::time::Duration = std::time::Duration::from_secs(60);
 const DEFAULT_MAX_RETRY_ATTEMPTS: u32 = 60;
+const DEFAULT_UPLOAD_RETRY_SLEEP_ON_ERROR: std::time::Duration = std::time::Duration::from_secs(1);
 
 type ReviewsReceiver =
     tokio::sync::mpsc::UnboundedReceiver<(Arc<dyn ReviewProps>, Option<oneshot::Sender<()>>)>;
@@ -196,6 +197,7 @@ where
             self.file_sender_maker.clone(),
             self.path_descriptors.clone(),
             self.time_getter.clone(),
+            DEFAULT_UPLOAD_RETRY_SLEEP_ON_ERROR,
         );
 
         // Previous upload attempts will be be cancelled if a new recording has arrived.

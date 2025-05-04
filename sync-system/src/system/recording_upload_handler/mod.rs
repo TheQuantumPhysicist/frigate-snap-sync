@@ -92,6 +92,7 @@ where
                             }
                         }
                         RecordingsUploadTaskHandlerCommand::Task(review, confirm_sender) => {
+                            // TODO: confirm sender should go through joining, in case the first attempt fails (like it's done for snapshots)
                             self.register_review_update(review).await;
                             if let Some(sender) = confirm_sender {
                                 if sender.send(()).is_err() {
@@ -115,6 +116,11 @@ where
                     }
                 }
             }
+        }
+
+        // Wrap all remaining tasks
+        while let Some(task_result) = self.running_tasks.next().await {
+            self.on_task_joined(task_result);
         }
     }
 
@@ -177,9 +183,15 @@ where
                     .remove(&id)
                     .expect("The value must have been inserted before");
             }
-            Err(e) => tracing::error!(
-                "CRITICAL. Recording task joined with error: {e}. This can lead to a memory leak!"
-            ),
+            Err(e) => {
+                tracing::error!(
+                    "CRITICAL. Recording task joined with error: {e}. This can lead to a memory leak!"
+                );
+
+                // We have to panic in tests on error, otherwise panics in tasks will be ignored
+                #[cfg(test)]
+                panic!("Panic occurred: {e}")
+            }
         }
     }
 }

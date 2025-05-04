@@ -2478,6 +2478,7 @@ dependencies = [
  "rand_chacha 0.9.0",
  "randomness",
  "rstest",
+ "tokio",
 ]
 
 [[package]]

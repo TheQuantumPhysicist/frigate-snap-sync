@@ -7,8 +7,6 @@ use std::{
 
 use super::file_senders::{make_file_senders, split_file_senders_and_descriptors};
 
-const SLEEP_AFTER_ERROR: std::time::Duration = std::time::Duration::from_secs(5);
-
 pub trait UploadableFile: Send + Sync {
     fn file_bytes(&self) -> &[u8];
     fn file_name(&self) -> PathBuf;
@@ -24,6 +22,7 @@ pub async fn remote_file_op<S: FileSenderMaker>(
     path_descriptors: Vec<Arc<PathDescriptor>>,
     file_sender_maker: Arc<S>,
     max_attempt_count: u32,
+    sleep_after_error: std::time::Duration,
 ) -> anyhow::Result<()> {
     // Take a copy of all the descriptors as the initial ones to use for the op
     let mut remaining_descriptors = path_descriptors;
@@ -58,7 +57,7 @@ pub async fn remote_file_op<S: FileSenderMaker>(
             if op_result.is_err() {
                 // Since it failed, we try again later
                 remaining_descriptors.push(s.path_descriptor().clone());
-                tokio::time::sleep(SLEEP_AFTER_ERROR).await;
+                tokio::time::sleep(sleep_after_error).await;
             }
         }
     }
@@ -94,13 +93,25 @@ async fn upload_file_inner(
     let dir = file.upload_dir();
     let upload_path = file.full_upload_path();
 
-    let result = file_sender.as_ref().mkdir_p(&dir).await.and(
-        file_sender
-            .as_ref()
-            .put_from_memory(file.file_bytes(), &upload_path)
-            .await,
-    );
+    let result = file_sender.as_ref().mkdir_p(&dir).await;
 
+    // Unfortunately, we have to call this ugly function twice because Result::and() doesn't work with async
+    handle_upload_error(&upload_path, file_sender, attempt_number, result)?;
+
+    let result = file_sender
+        .as_ref()
+        .put_from_memory(file.file_bytes(), &upload_path)
+        .await;
+
+    handle_upload_error(&upload_path, file_sender, attempt_number, result)
+}
+
+fn handle_upload_error(
+    upload_path: &Path,
+    file_sender: &Arc<dyn StoreDestination<Error = anyhow::Error>>,
+    attempt_number: u32,
+    result: anyhow::Result<()>,
+) -> anyhow::Result<()> {
     match &result {
         Ok(()) => {
             tracing::info!(
@@ -119,7 +130,6 @@ async fn upload_file_inner(
             );
         }
     }
-
     result
 }
 

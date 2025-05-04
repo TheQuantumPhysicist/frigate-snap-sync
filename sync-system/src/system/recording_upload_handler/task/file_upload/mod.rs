@@ -50,6 +50,8 @@ pub struct ReviewUpload<F, S> {
     file_sender_maker: Arc<S>,
     time_getter: TimeGetter,
     path_descriptors: PathDescriptors,
+
+    upload_file_op_retry_sleep: std::time::Duration,
 }
 
 impl<F, S> ReviewUpload<F, S>
@@ -57,6 +59,7 @@ where
     F: FrigateApiMaker,
     S: FileSenderMaker,
 {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         review: Arc<dyn ReviewProps>,
         alternative_upload: bool,
@@ -65,16 +68,21 @@ where
         file_sender_maker: Arc<S>,
         path_descriptors: PathDescriptors,
         time_getter: TimeGetter,
+        upload_file_op_retry_sleep: std::time::Duration,
     ) -> Self {
         Self {
             review,
             state: ReviewUploadState::default(),
             alternative_upload,
+
             frigate_api_config,
             frigate_api_maker,
             file_sender_maker,
+
             time_getter,
             path_descriptors,
+
+            upload_file_op_retry_sleep,
         }
     }
 
@@ -117,6 +125,7 @@ where
                         self.path_descriptors.path_descriptors.as_ref().clone(),
                         self.file_sender_maker.clone(),
                         MAX_UPLOAD_ATTEMPTS,
+                        self.upload_file_op_retry_sleep,
                     )
                     .await
                     .map_err(|e| ReviewUploadError::DeletingAltFile(e.to_string()))?;
@@ -129,6 +138,7 @@ where
                         self.path_descriptors.path_descriptors.as_ref().clone(),
                         self.file_sender_maker.clone(),
                         MAX_DELETE_ATTEMPTS,
+                        self.upload_file_op_retry_sleep,
                     )
                     .await
                     .map_err(|e| ReviewUploadError::RecordingUpload(e.to_string()))?;

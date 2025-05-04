@@ -10,6 +10,7 @@ use std::{path::PathBuf, sync::Arc};
 use utils::time::Time;
 
 const MAX_ATTEMPT_COUNT: u32 = 128;
+const DEFAULT_UPLOAD_RETRY_SLEEP_ON_ERROR: std::time::Duration = std::time::Duration::from_secs(1);
 
 #[must_use]
 pub struct SnapshotUploadTask<S> {
@@ -45,6 +46,7 @@ impl<S: FileSenderMaker> SnapshotUploadTask<S> {
             path_descriptors,
             file_sender_maker,
             MAX_ATTEMPT_COUNT,
+            DEFAULT_UPLOAD_RETRY_SLEEP_ON_ERROR,
         )
         .await
         .inspect_err(|e| tracing::error!("Snapshot remote op file error: {e}"));
