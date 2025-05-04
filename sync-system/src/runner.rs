@@ -1,10 +1,9 @@
+use crate::{config::VideoSyncConfig, system::SyncSystem};
 use file_sender::{make_store, path_descriptor::PathDescriptor};
 use frigate_api_caller::{config::FrigateApiConfig, make_frigate_client};
 use logging::init_logging;
 use mqtt_handler::config::MqttHandlerConfig;
 use std::sync::Arc;
-
-use crate::{config::VideoSyncConfig, system::SyncSystem};
 
 impl From<&VideoSyncConfig> for FrigateApiConfig {
     fn from(config: &VideoSyncConfig) -> Self {
