@@ -10,10 +10,7 @@ use crate::{
 use file_sender::{path_descriptor::PathDescriptor, traits::StoreDestination};
 use frigate_api_caller::{config::FrigateApiConfig, traits::FrigateApi};
 use futures::FutureExt;
-use mqtt_handler::{
-    config::MqttHandlerConfig,
-    types::{CapturedPayloads, reviews::ReviewProps, snapshot::Snapshot},
-};
+use mqtt_handler::types::{CapturedPayloads, reviews::ReviewProps, snapshot::Snapshot};
 use recording_upload_handler::{RecordingsTaskHandler, RecordingsUploadTaskHandlerCommand};
 use snapshot_upload_task::{SnapshotsTaskHandler, SnapshotsUploadTaskHandlerCommand};
 use std::{path::Path, sync::Arc};
@@ -37,6 +34,7 @@ pub struct SyncSystem<F, S> {
 
     rec_updates_sender: UnboundedSender<RecordingsUploadTaskHandlerCommand>,
     snapshots_updates_sender: UnboundedSender<SnapshotsUploadTaskHandlerCommand>,
+    mqtt_data_receiver: tokio::sync::mpsc::UnboundedReceiver<CapturedPayloads>,
 
     join_handles: Vec<(String, JoinHandle<()>)>,
 
@@ -52,6 +50,7 @@ where
         config: VideoSyncConfig,
         frigate_api_maker: F,
         file_sender_maker: S,
+        mqtt_data_receiver: tokio::sync::mpsc::UnboundedReceiver<CapturedPayloads>,
         stop_receiver: Option<UnboundedReceiver<()>>,
     ) -> Self {
         let frigate_api_config = FrigateApiConfig::from(&config);
@@ -95,6 +94,7 @@ where
 
             rec_updates_sender,
             snapshots_updates_sender,
+            mqtt_data_receiver,
 
             join_handles,
 
@@ -103,12 +103,6 @@ where
     }
 
     pub async fn start(&mut self) -> anyhow::Result<()> {
-        let mqtt_config = MqttHandlerConfig::from(&self.config);
-
-        let (mqtt_data_sender, mut mqtt_data_receiver) = tokio::sync::mpsc::unbounded_channel();
-
-        let mut mqtt_handler = mqtt_handler::MqttHandler::new(mqtt_config, mqtt_data_sender)?;
-
         self.test_frigate_api_connection().await;
 
         self.test_file_senders().await;
@@ -120,7 +114,7 @@ where
             };
 
             tokio::select! {
-                Some(data) = mqtt_data_receiver.recv() => {
+                Some(data) = self.mqtt_data_receiver.recv() => {
                     self.on_mqtt_data_received(data);
                 },
 
@@ -132,9 +126,6 @@ where
         }
 
         tracing::info!("Reached the end of {STRUCT_NAME} event loop. Unwinding all task managers.");
-
-        mqtt_handler.stop();
-        mqtt_handler.wait().await;
 
         self.rec_updates_sender
             .send(RecordingsUploadTaskHandlerCommand::Stop)

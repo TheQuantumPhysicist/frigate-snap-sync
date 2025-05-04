@@ -47,14 +47,26 @@ pub async fn run() -> anyhow::Result<()> {
     })
     .expect("Error setting Ctrl+C handler");
 
-    let mut sync_sys = SyncSystem::new(
-        config,
-        frigate_api_maker,
-        file_sender_maker,
-        Some(stop_receiver),
-    );
+    {
+        let mqtt_config = MqttHandlerConfig::from(&config);
 
-    sync_sys.start().await?;
+        let (mqtt_data_sender, mqtt_data_receiver) = tokio::sync::mpsc::unbounded_channel();
+
+        let mut mqtt_handler = mqtt_handler::MqttHandler::new(mqtt_config, mqtt_data_sender)?;
+
+        let mut sync_sys = SyncSystem::new(
+            config,
+            frigate_api_maker,
+            file_sender_maker,
+            mqtt_data_receiver,
+            Some(stop_receiver),
+        );
+
+        sync_sys.start().await?;
+
+        mqtt_handler.stop();
+        mqtt_handler.wait().await;
+    }
 
     Ok(())
 }
