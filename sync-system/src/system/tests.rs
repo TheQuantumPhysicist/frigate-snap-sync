@@ -6,11 +6,13 @@ use mqtt_handler::types::{
     CapturedPayloads,
     reviews::{ReviewProps, payload},
     snapshot::Snapshot,
+    snapshots_state::SnapshotsState,
 };
 use rstest::rstest;
 use std::{path::Path, sync::Arc};
-use test_utils::random::{
-    Seed, gen_random_bytes, gen_random_string, make_seedable_rng, random_seed,
+use test_utils::{
+    asserts::{assert_str_contains, assert_str_starts_with},
+    random::{Seed, gen_random_bytes, gen_random_string, make_seedable_rng, random_seed},
 };
 use tokio::sync::{mpsc::UnboundedSender, oneshot};
 
@@ -142,6 +144,85 @@ async fn basic(random_seed: Seed, #[values(false, true)] pass_initial_api_test: 
             let file_sender = file_sender_maker(pd).unwrap();
             // No upload because the state of reviews is disabled by default
             assert!(file_sender.ls(Path::new(".")).await.unwrap().is_empty());
+        }
+    }
+
+    let camera1_label = "camera1_label";
+
+    {
+        {
+            let camera_state = get_camera_state(&camera_state_getter_sender).await;
+            assert!(camera_state.recordings_state().is_empty());
+            assert!(camera_state.snapshots_state().is_empty());
+        }
+
+        {
+            let enable_payload = CapturedPayloads::CameraSnapshotsState(SnapshotsState {
+                camera_label: camera1_label.to_string(),
+                state: true,
+            });
+            mqtt_data_sender.send(enable_payload).unwrap();
+        }
+
+        {
+            {
+                // We can't guarantee that the mqtt state update will happen in order, so we just wait for it for a while
+                tokio::time::timeout(std::time::Duration::from_secs(10), async {
+                    loop {
+                        if !get_camera_state(&camera_state_getter_sender)
+                            .await
+                            .snapshots_state()
+                            .is_empty()
+                        {
+                            break;
+                        }
+                    }
+                    futures::future::ready(()).await;
+                })
+                .await
+                .unwrap();
+            }
+            let camera_state = get_camera_state(&camera_state_getter_sender).await;
+            assert_eq!(camera_state.snapshots_state().len(), 1);
+            assert_eq!(camera_state.recordings_state().len(), 0);
+        }
+    }
+
+    {
+        let snapshot = Snapshot {
+            image_bytes: gen_random_bytes(&mut rng, 100..1000),
+            camera_label: camera1_label.to_string(),
+            object_name: gen_random_string(&mut rng, 10..20),
+        };
+        let payload = CapturedPayloads::Snapshot(Arc::new(snapshot));
+        mqtt_data_sender.send(payload).unwrap();
+
+        for pd in &*upload_dests.path_descriptors {
+            let file_sender = file_sender_maker(pd).unwrap();
+
+            {
+                // We can't guarantee that the upload will happen before we check, so we gotta wait for it
+                tokio::time::timeout(std::time::Duration::from_secs(10), async {
+                    loop {
+                        let dirs = file_sender.ls(Path::new(".")).await.unwrap();
+                        if !dirs.is_empty() && !file_sender.ls(&dirs[0]).await.unwrap().is_empty() {
+                            break;
+                        }
+                    }
+                    futures::future::ready(()).await;
+                })
+                .await
+                .unwrap();
+            }
+
+            // No upload because the state of snapshots is disabled by default
+            let dirs = file_sender.ls(Path::new(".")).await.unwrap();
+            assert_eq!(dirs.len(), 1);
+            // Expect one file
+            let files = file_sender.ls(&dirs[0]).await.unwrap();
+            assert_eq!(files.len(), 1);
+            assert_str_starts_with(&files[0].display().to_string(), "Snapshot");
+            assert_str_contains(&files[0].display().to_string(), camera1_label);
         }
     }
 

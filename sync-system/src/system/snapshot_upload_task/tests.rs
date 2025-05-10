@@ -73,11 +73,12 @@ async fn upload_snapshot(random_seed: Seed) {
 
         // Wait for the task/upload to finish
         tokio::time::timeout(VERY_LONG_WAIT, async {
-            if get_task_count(&cmd_sender).await > 0 {
-                futures::future::pending::<()>().await
-            } else {
-                futures::future::ready(()).await
+            loop {
+                if get_task_count(&cmd_sender).await == 0 {
+                    break;
+                }
             }
+            futures::future::ready(()).await
         })
         .await
         .unwrap();
@@ -173,11 +174,12 @@ async fn upload_snapshot_mocked(random_seed: Seed) {
 
         // Wait for the task/upload to finish
         tokio::time::timeout(VERY_LONG_WAIT, async {
-            if get_task_count(&cmd_sender).await > 0 {
-                futures::future::pending::<()>().await
-            } else {
-                futures::future::ready(()).await
+            loop {
+                if get_task_count(&cmd_sender).await == 0 {
+                    break;
+                }
             }
+            futures::future::ready(()).await
         })
         .await
         .unwrap();
@@ -275,11 +277,12 @@ async fn upload_snapshot_mocked_error_mkdir(random_seed: Seed) {
 
         // Wait for the task/upload to finish
         tokio::time::timeout(VERY_LONG_WAIT, async {
-            if get_task_count(&cmd_sender).await > 0 {
-                futures::future::pending::<()>().await
-            } else {
-                futures::future::ready(()).await
+            loop {
+                if get_task_count(&cmd_sender).await == 0 {
+                    break;
+                }
             }
+            futures::future::ready(()).await
         })
         .await
         .unwrap();
