@@ -1,15 +1,18 @@
+use crate::{config::PathDescriptors, state::CamerasState, system::SyncSystem};
 use file_sender::{make_store, path_descriptor::PathDescriptor};
 use frigate_api_caller::{config::FrigateApiConfig, traits::FrigateApi};
 use mocks::frigate_api::make_frigate_client_mock;
-use mqtt_handler::types::{CapturedPayloads, snapshot::Snapshot};
+use mqtt_handler::types::{
+    CapturedPayloads,
+    reviews::{ReviewProps, payload},
+    snapshot::Snapshot,
+};
 use rstest::rstest;
-use std::sync::Arc;
+use std::{path::Path, sync::Arc};
 use test_utils::random::{
     Seed, gen_random_bytes, gen_random_string, make_seedable_rng, random_seed,
 };
 use tokio::sync::{mpsc::UnboundedSender, oneshot};
-
-use crate::{config::PathDescriptors, state::CamerasState, system::SyncSystem};
 
 async fn get_camera_state(sender: &UnboundedSender<oneshot::Sender<CamerasState>>) -> CamerasState {
     let (state_sender, state_receiver) = oneshot::channel();
@@ -17,15 +20,48 @@ async fn get_camera_state(sender: &UnboundedSender<oneshot::Sender<CamerasState>
     state_receiver.await.unwrap()
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[derive(Debug, Clone)]
+struct TestReviewData {
+    camera_name: String,
+    start_time: f64,
+    end_time: Option<f64>,
+    id: String,
+    type_field: payload::TypeField,
+}
+
+impl ReviewProps for TestReviewData {
+    fn camera_name(&self) -> &str {
+        &self.camera_name
+    }
+
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    fn start_time(&self) -> f64 {
+        self.start_time
+    }
+
+    fn end_time(&self) -> Option<f64> {
+        self.end_time
+    }
+
+    fn type_field(&self) -> payload::TypeField {
+        self.type_field
+    }
+}
+
+#[tokio::test]
 #[rstest]
 async fn basic(random_seed: Seed, #[values(false, true)] pass_initial_api_test: bool) {
     let mut rng = make_seedable_rng(random_seed);
 
-    let temp_dir = tempfile::TempDir::new().unwrap();
-    let upload_dests = Arc::new(vec![Arc::new(PathDescriptor::Local(
-        temp_dir.path().to_owned(),
-    ))]);
+    let temp_dir1 = tempfile::TempDir::new().unwrap();
+    let temp_dir2 = tempfile::TempDir::new().unwrap();
+    let upload_dests = Arc::new(vec![
+        Arc::new(PathDescriptor::Local(temp_dir1.path().to_owned())),
+        Arc::new(PathDescriptor::Local(temp_dir2.path().to_owned())),
+    ]);
     let upload_dests = PathDescriptors {
         path_descriptors: upload_dests,
     };
@@ -58,7 +94,7 @@ async fn basic(random_seed: Seed, #[values(false, true)] pass_initial_api_test: 
         tokio::sync::mpsc::unbounded_channel();
 
     let sync_sys = SyncSystem::new(
-        upload_dests,
+        upload_dests.clone(),
         Arc::new(frigate_api_config),
         frigate_api_maker,
         file_sender_maker,
@@ -84,8 +120,31 @@ async fn basic(random_seed: Seed, #[values(false, true)] pass_initial_api_test: 
         let payload = CapturedPayloads::Snapshot(Arc::new(snapshot));
         mqtt_data_sender.send(payload).unwrap();
 
-        // TODO: assert that filesystem(s) don't have anything uploaded here
+        for pd in &*upload_dests.path_descriptors {
+            let file_sender = file_sender_maker(pd).unwrap();
+            // No upload because the state of snapshots is disabled by default
+            assert!(file_sender.ls(Path::new(".")).await.unwrap().is_empty());
+        }
     }
+
+    {
+        let review = TestReviewData {
+            camera_name: gen_random_string(&mut rng, 10..20),
+            start_time: 950.,
+            end_time: None,
+            id: "id-abcdefg".to_string(),
+            type_field: payload::TypeField::New,
+        };
+        let payload = CapturedPayloads::Reviews(Arc::new(review));
+        mqtt_data_sender.send(payload).unwrap();
+
+        for pd in &*upload_dests.path_descriptors {
+            let file_sender = file_sender_maker(pd).unwrap();
+            // No upload because the state of reviews is disabled by default
+            assert!(file_sender.ls(Path::new(".")).await.unwrap().is_empty());
+        }
+    }
+
     // TODO: test changing camera states, and responding to snapshots and recordings
     // TODO: test receiving snapshots with both camera states, on/off
     // TODO: test receiving recordings with both camera states, on/off
