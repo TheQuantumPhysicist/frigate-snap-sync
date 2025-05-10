@@ -38,7 +38,7 @@ version = "0.1.0"
 license = "MIT"
 
 [workspace.dependencies]
-anyhow = "1.0"
+anyhow = "1"
 async-trait = "0.1"
 bytes = "1.10"
 ctor = "0.4"
@@ -58,7 +58,7 @@ serde_yml = "0.0"
 tap = "1.0"
 tempfile = "3.19"
 thiserror = "2.0"
-tokio = { version = "1.44", default-features = false }
+tokio = { version = "1.45", default-features = false }
 tracing-subscriber = "0.3"
 tracing = "0.1"
 reqwest = "0.12"
