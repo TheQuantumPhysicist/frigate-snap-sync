@@ -12,7 +12,10 @@ use recording_upload_handler::{RecordingsTaskHandler, RecordingsUploadTaskHandle
 use snapshot_upload_task::{SnapshotsTaskHandler, SnapshotsUploadTaskHandlerCommand};
 use std::{path::Path, sync::Arc};
 use tokio::{
-    sync::mpsc::{UnboundedReceiver, UnboundedSender},
+    sync::{
+        mpsc::{UnboundedReceiver, UnboundedSender},
+        oneshot,
+    },
     task::JoinHandle,
 };
 use traits::{FileSenderMaker, FrigateApiMaker};
@@ -33,6 +36,9 @@ pub struct SyncSystem<F, S> {
     snapshots_updates_sender: UnboundedSender<SnapshotsUploadTaskHandlerCommand>,
     mqtt_data_receiver: tokio::sync::mpsc::UnboundedReceiver<CapturedPayloads>,
 
+    /// This can be used in tests (and otherwise) to retrieve the current state of cameras
+    camera_state_getter: Option<UnboundedReceiver<oneshot::Sender<CamerasState>>>,
+
     join_handles: Vec<(String, JoinHandle<()>)>,
 
     stop_receiver: Option<UnboundedReceiver<()>>,
@@ -49,6 +55,7 @@ where
         frigate_api_maker: F,
         file_sender_maker: S,
         mqtt_data_receiver: tokio::sync::mpsc::UnboundedReceiver<CapturedPayloads>,
+        camera_state_getter: Option<UnboundedReceiver<oneshot::Sender<CamerasState>>>,
         stop_receiver: Option<UnboundedReceiver<()>>,
     ) -> Self {
         let frigate_api_maker = Arc::new(frigate_api_maker);
@@ -88,6 +95,8 @@ where
             snapshots_updates_sender,
             mqtt_data_receiver,
 
+            camera_state_getter,
+
             join_handles,
 
             stop_receiver,
@@ -105,9 +114,23 @@ where
                 None => futures::future::pending().boxed(),
             };
 
+            let camera_state_receiver = match self.camera_state_getter.as_mut() {
+                Some(receiver) => receiver.recv().boxed(),
+                None => futures::future::pending().boxed(),
+            };
+
             tokio::select! {
                 Some(data) = self.mqtt_data_receiver.recv() => {
                     self.on_mqtt_data_received(data);
+                },
+
+                Some(sender) = camera_state_receiver => {
+
+                    let send_result = sender.send(self.cameras_state.clone());
+
+                    if send_result.is_err() {
+                        tracing::error!("Failed to send camera state in {STRUCT_NAME} due to channel dead.");
+                    }
                 },
 
                 Some(()) = stop_receiver => {

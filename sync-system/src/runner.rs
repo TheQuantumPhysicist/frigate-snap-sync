@@ -59,6 +59,7 @@ pub async fn run() -> anyhow::Result<()> {
             frigate_api_maker,
             file_sender_maker,
             mqtt_data_receiver,
+            None,
             Some(stop_receiver),
         );
 

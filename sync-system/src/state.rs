@@ -3,7 +3,7 @@ use std::collections::HashMap;
 const DEFAULT_CAMERA_RECORDINGS_STATE: bool = false;
 const DEFAULT_CAMERA_SNAPSHOTS_STATE: bool = false;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct CamerasState {
     cameras_recordings_state: HashMap<String, bool>,
     cameras_snapshots_state: HashMap<String, bool>,
@@ -34,5 +34,13 @@ impl CamerasState {
         let camera_name = camera_name.into();
         tracing::debug!("Updating snapshots state of camera `{camera_name}` to `{value}`");
         self.cameras_snapshots_state.insert(camera_name, value);
+    }
+
+    pub fn recordings_state(&self) -> &HashMap<String, bool> {
+        &self.cameras_recordings_state
+    }
+
+    pub fn snapshots_state(&self) -> &HashMap<String, bool> {
+        &self.cameras_snapshots_state
     }
 }
