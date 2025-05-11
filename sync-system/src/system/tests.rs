@@ -19,7 +19,7 @@ use test_utils::{
 };
 use tokio::sync::{mpsc::UnboundedSender, oneshot};
 
-const VERY_LONG_WAIT: std::time::Duration = std::time::Duration::from_secs(10); // TODO: change to 30
+const VERY_LONG_WAIT: std::time::Duration = std::time::Duration::from_secs(10);
 
 async fn get_camera_state(sender: &UnboundedSender<oneshot::Sender<CamerasState>>) -> CamerasState {
     let (state_sender, state_receiver) = oneshot::channel();
@@ -60,14 +60,7 @@ impl ReviewProps for TestReviewData {
 
 #[tokio::test]
 #[rstest]
-async fn basic(
-    random_seed: Seed,
-    #[values(
-    // false, // TODO: uncomment
-     true
-    )]
-    pass_initial_api_test: bool,
-) {
+async fn basic(random_seed: Seed, #[values(false, true)] pass_initial_api_test: bool) {
     use test_utils::asserts::assert_slice_contains;
 
     let mut rng = make_seedable_rng(random_seed);
@@ -291,7 +284,7 @@ async fn basic(
             start_time: 950.,
             end_time: None,
             id: "id-abcdefg".to_string(),
-            type_field: payload::TypeField::New,
+            type_field: payload::TypeField::End, // We use end because otherwise the upload task is considered unfinished
         };
         let payload = CapturedPayloads::Reviews(Arc::new(review));
         mqtt_data_sender.send(payload).unwrap();
@@ -329,11 +322,14 @@ async fn basic(
         }
     }
 
-    // TODO: re-enable - note that this works again if the last recording section is removed
-    // // Shutdown mechanism
-    // {
-    //     stop_sender.send(()).unwrap();
+    // Shutdown mechanism
+    {
+        stop_sender.send(()).unwrap();
 
-    //     task_handle.await.unwrap().unwrap();
-    // }
+        tokio::time::timeout(VERY_LONG_WAIT, task_handle)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+    }
 }
