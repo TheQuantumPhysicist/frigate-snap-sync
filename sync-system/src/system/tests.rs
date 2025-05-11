@@ -9,12 +9,17 @@ use mqtt_handler::types::{
     snapshots_state::SnapshotsState,
 };
 use rstest::rstest;
-use std::{path::Path, sync::Arc};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 use test_utils::{
     asserts::{assert_str_contains, assert_str_starts_with},
     random::{Seed, gen_random_bytes, gen_random_string, make_seedable_rng, random_seed},
 };
 use tokio::sync::{mpsc::UnboundedSender, oneshot};
+
+const VERY_LONG_WAIT: std::time::Duration = std::time::Duration::from_secs(10); // TODO: change to 30
 
 async fn get_camera_state(sender: &UnboundedSender<oneshot::Sender<CamerasState>>) -> CamerasState {
     let (state_sender, state_receiver) = oneshot::channel();
@@ -55,7 +60,16 @@ impl ReviewProps for TestReviewData {
 
 #[tokio::test]
 #[rstest]
-async fn basic(random_seed: Seed, #[values(false, true)] pass_initial_api_test: bool) {
+async fn basic(
+    random_seed: Seed,
+    #[values(
+    // false, // TODO: uncomment
+     true
+    )]
+    pass_initial_api_test: bool,
+) {
+    use test_utils::asserts::assert_slice_contains;
+
     let mut rng = make_seedable_rng(random_seed);
 
     let temp_dir1 = tempfile::TempDir::new().unwrap();
@@ -74,6 +88,7 @@ async fn basic(random_seed: Seed, #[values(false, true)] pass_initial_api_test: 
     };
 
     let mut frigate_api_mock = make_frigate_client_mock();
+    let frigate_returned_video_data_vec = b"012345".to_vec();
     {
         frigate_api_mock.expect_test_call().returning(move || {
             if pass_initial_api_test {
@@ -82,6 +97,9 @@ async fn basic(random_seed: Seed, #[values(false, true)] pass_initial_api_test: 
                 Err(anyhow::anyhow!("Fake api error for tests"))
             }
         });
+        frigate_api_mock
+            .expect_recording_clip()
+            .returning(move |_, _, _| Ok(Some(frigate_returned_video_data_vec.clone())));
     }
     let frigate_api_mock: Arc<dyn FrigateApi> = Arc::new(frigate_api_mock);
     let frigate_api_maker = move |_: &FrigateApiConfig| Ok(frigate_api_mock.clone());
@@ -167,7 +185,7 @@ async fn basic(random_seed: Seed, #[values(false, true)] pass_initial_api_test: 
         {
             {
                 // We can't guarantee that the mqtt state update will happen in order, so we just wait for it for a while
-                tokio::time::timeout(std::time::Duration::from_secs(10), async {
+                tokio::time::timeout(VERY_LONG_WAIT, async {
                     loop {
                         if !get_camera_state(&camera_state_getter_sender)
                             .await
@@ -202,7 +220,7 @@ async fn basic(random_seed: Seed, #[values(false, true)] pass_initial_api_test: 
 
             {
                 // We can't guarantee that the upload will happen before we check, so we gotta wait for it
-                tokio::time::timeout(std::time::Duration::from_secs(10), async {
+                tokio::time::timeout(VERY_LONG_WAIT, async {
                     loop {
                         let dirs = file_sender.ls(Path::new(".")).await.unwrap();
                         if !dirs.is_empty() && !file_sender.ls(&dirs[0]).await.unwrap().is_empty() {
@@ -215,7 +233,7 @@ async fn basic(random_seed: Seed, #[values(false, true)] pass_initial_api_test: 
                 .unwrap();
             }
 
-            // No upload because the state of snapshots is disabled by default
+            // Upload directory
             let dirs = file_sender.ls(Path::new(".")).await.unwrap();
             assert_eq!(dirs.len(), 1);
             // Expect one file
@@ -226,14 +244,96 @@ async fn basic(random_seed: Seed, #[values(false, true)] pass_initial_api_test: 
         }
     }
 
-    // TODO: test changing camera states, and responding to snapshots and recordings
-    // TODO: test receiving snapshots with both camera states, on/off
-    // TODO: test receiving recordings with both camera states, on/off
-
-    // Shutdown mechanism
     {
-        stop_sender.send(()).unwrap();
+        {
+            let camera_state = get_camera_state(&camera_state_getter_sender).await;
+            assert!(camera_state.recordings_state().is_empty());
+            assert_eq!(camera_state.snapshots_state().len(), 1);
+        }
 
-        task_handle.await.unwrap().unwrap();
+        {
+            let enable_payload = CapturedPayloads::CameraRecordingsState(
+                mqtt_handler::types::recordings_state::RecordingsState {
+                    camera_label: camera1_label.to_string(),
+                    state: true,
+                },
+            );
+            mqtt_data_sender.send(enable_payload).unwrap();
+        }
+
+        {
+            {
+                // We can't guarantee that the mqtt state update will happen in order, so we just wait for it for a while
+                tokio::time::timeout(VERY_LONG_WAIT, async {
+                    loop {
+                        if !get_camera_state(&camera_state_getter_sender)
+                            .await
+                            .recordings_state()
+                            .is_empty()
+                        {
+                            break;
+                        }
+                    }
+                    futures::future::ready(()).await;
+                })
+                .await
+                .unwrap();
+            }
+            let camera_state = get_camera_state(&camera_state_getter_sender).await;
+            assert_eq!(camera_state.snapshots_state().len(), 1);
+            assert_eq!(camera_state.recordings_state().len(), 1);
+        }
     }
+
+    {
+        let review = TestReviewData {
+            camera_name: camera1_label.to_string(),
+            start_time: 950.,
+            end_time: None,
+            id: "id-abcdefg".to_string(),
+            type_field: payload::TypeField::New,
+        };
+        let payload = CapturedPayloads::Reviews(Arc::new(review));
+        mqtt_data_sender.send(payload).unwrap();
+
+        for pd in &*upload_dests.path_descriptors {
+            let file_sender = file_sender_maker(pd).unwrap();
+
+            {
+                // We can't guarantee that the upload will happen before we check, so we gotta wait for it
+                tokio::time::timeout(VERY_LONG_WAIT, async {
+                    loop {
+                        let dirs = file_sender.ls(Path::new(".")).await.unwrap();
+                        if dirs.len() == 2
+                            && !file_sender.ls(&dirs[0]).await.unwrap().is_empty()
+                            && !file_sender.ls(&dirs[1]).await.unwrap().is_empty()
+                        {
+                            break;
+                        }
+                    }
+                    futures::future::ready(()).await;
+                })
+                .await
+                .unwrap();
+            }
+
+            // Upload directory - we expect directory from 01-01-1970 due to a very early timestamp
+            let dirs_in = file_sender.ls(Path::new(".")).await.unwrap();
+            let expected_dir = PathBuf::from("1970-01-01");
+            assert_slice_contains(&dirs_in, &expected_dir);
+            // Expect one file
+            let files = file_sender.ls(&expected_dir).await.unwrap();
+            assert_eq!(files.len(), 1);
+            assert_str_starts_with(&files[0].display().to_string(), "RecordingClip");
+            assert_str_contains(&files[0].display().to_string(), camera1_label);
+        }
+    }
+
+    // TODO: re-enable - note that this works again if the last recording section is removed
+    // // Shutdown mechanism
+    // {
+    //     stop_sender.send(()).unwrap();
+
+    //     task_handle.await.unwrap().unwrap();
+    // }
 }

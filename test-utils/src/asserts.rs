@@ -18,3 +18,10 @@ pub fn assert_str_contains(s: &str, to_contain: &str) {
         "String does not contain expected value. \nString: `{s}`\nDoes not contain: `{to_contain}`"
     );
 }
+
+pub fn assert_slice_contains<T: Eq + std::fmt::Debug>(v: &[T], to_contain: &T) {
+    assert!(
+        v.contains(to_contain),
+        "String does not contain expected value. \nString: `{v:?}`\nDoes not contain: `{to_contain:?}`"
+    );
+}
