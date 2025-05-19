@@ -12,13 +12,18 @@ workspace = true
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 libssh2-sys = { workspace = true }
+logging = { workspace = true }
 ssh2 = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 tracing = { workspace = true }
 vfs = { workspace = true }
+utils = { workspace = true }
 
 [dev-dependencies]
-tempfile = { workspace = true }
 rstest = { workspace = true }
+russh = { workspace = true }
+tempfile = { workspace = true }
 test-utils = { workspace = true }
+
+rand_core = "0.6" # This is needed because russh uses an old version

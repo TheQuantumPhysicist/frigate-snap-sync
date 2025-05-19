@@ -3,7 +3,11 @@
     "cSpell.words": [
         "ftyp",
         "libssh",
-        "mqtt"
+        "lscr",
+        "mqtt",
+        "PGID",
+        "PUID",
+        "realpath"
     ],
     "terminal.integrated.env.osx": {
         "RUST_LOG": "trace"

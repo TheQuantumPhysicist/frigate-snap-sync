@@ -7,7 +7,7 @@ use async_trait::async_trait;
 
 use crate::path_descriptor::PathDescriptor;
 
-// TODO: make this async by using blocking ops in tokio+
+// TODO: make this async by using blocking ops in tokio
 // TODO: consider moving sftp to https://crates.io/crates/russh to use async
 
 /// A representation of store location, remote possibly, where we data can be sent.

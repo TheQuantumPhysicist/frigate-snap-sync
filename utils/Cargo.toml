@@ -8,6 +8,12 @@ license.workspace = true
 [dependencies]
 chrono = { workspace = true }
 serial_test = { workspace = true }
+tracing = { workspace = true }
+randomness = { workspace = true }
+
+[dev-dependencies]
+test-utils = { workspace = true }
+rstest = { workspace = true }
 
 [lints]
 workspace = true

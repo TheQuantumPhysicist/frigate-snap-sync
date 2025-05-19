@@ -1,7 +1,57 @@
 use std::{fmt::Display, path::PathBuf, str::FromStr};
 
+use crate::store_sftp::SftpError;
+
 const LOCAL_PREFIX: &str = "local";
 const SFTP_PREFIX: &str = "sftp";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum IdentitySource {
+    InMemory(String),
+    OnDisk(std::path::PathBuf),
+}
+
+impl IdentitySource {
+    #[must_use]
+    pub fn display(&self) -> impl std::fmt::Display + '_ {
+        struct DisplayWrapper<'a>(&'a IdentitySource);
+
+        impl std::fmt::Display for DisplayWrapper<'_> {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                match self.0 {
+                    IdentitySource::InMemory(_) => write!(f, "<in-memory>"),
+                    IdentitySource::OnDisk(path) => write!(f, "{}", path.display()),
+                }
+            }
+        }
+
+        DisplayWrapper(self)
+    }
+
+    pub fn from_path(p: impl Into<PathBuf>) -> Self {
+        Self::OnDisk(p.into())
+    }
+
+    #[must_use]
+    pub fn from_memory(d: String) -> Self {
+        Self::InMemory(d)
+    }
+
+    pub fn into_key(self) -> Result<String, SftpError> {
+        match self {
+            IdentitySource::InMemory(data) => Ok(data),
+            IdentitySource::OnDisk(path_buf) => {
+                if !path_buf.exists() {
+                    return Err(SftpError::PrivKeyNotFoundInPath(path_buf.clone()));
+                }
+
+                let result =
+                    std::fs::read_to_string(path_buf).map_err(SftpError::PrivKeyReadError)?;
+                Ok(result)
+            }
+        }
+    }
+}
 
 /// Defines a destination to which an upload will be made
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -11,7 +61,7 @@ pub enum PathDescriptor {
         username: String,
         remote_address: String,
         remote_path: String,
-        identity: PathBuf,
+        identity: IdentitySource,
     },
 }
 
@@ -72,7 +122,7 @@ impl FromStr for PathDescriptor {
                     username: user.to_string(),
                     remote_address: address.to_string(),
                     remote_path: path.to_string(),
-                    identity: identity.into(),
+                    identity: IdentitySource::OnDisk(identity.into()),
                 })
             }
 
@@ -121,7 +171,7 @@ mod tests {
                     username: "user".to_string(),
                     remote_address: "example.com".to_string(),
                     remote_path: "/home/user2/something_else.txt".to_string(),
-                    identity: "/home/user/key.pem".into()
+                    identity: IdentitySource::OnDisk("/home/user/key.pem".into())
                 }
             );
         }
@@ -165,7 +215,7 @@ mod tests {
                     username: "user".to_string(),
                     remote_address: "example.com".to_string(),
                     remote_path: "/home/user2/something_else.txt".to_string(),
-                    identity: "/home/user/key.pem".into()
+                    identity: IdentitySource::OnDisk("/home/user/key.pem".into())
                 }
             );
             assert_eq!(d.to_string(), s);

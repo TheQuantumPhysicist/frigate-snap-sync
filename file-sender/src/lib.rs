@@ -4,7 +4,7 @@ mod store_sftp;
 mod store_virtual;
 pub mod traits;
 
-use path_descriptor::PathDescriptor;
+use path_descriptor::{IdentitySource, PathDescriptor};
 use std::{
     path::{Path, PathBuf},
     sync::Arc,
@@ -28,7 +28,7 @@ pub fn make_store(
             path_descriptor.clone(),
             remote_address,
             username,
-            identity,
+            identity.clone(),
             remote_path,
         ),
     }
@@ -46,14 +46,14 @@ fn make_sftp_store(
     path_descriptor: Arc<PathDescriptor>,
     host: &str,
     username: &str,
-    priv_key_path: impl AsRef<Path>,
+    priv_key_path: IdentitySource,
     destination_path: impl Into<PathBuf>,
 ) -> anyhow::Result<Arc<dyn StoreDestination<Error = anyhow::Error>>> {
     let sftp = SftpImpl::new_with_public_key(
         path_descriptor,
         host,
         username,
-        &priv_key_path,
+        priv_key_path,
         destination_path,
     )?;
 

@@ -1,4 +1,7 @@
-use crate::{path_descriptor::PathDescriptor, traits::StoreDestination};
+use crate::{
+    path_descriptor::{IdentitySource, PathDescriptor},
+    traits::StoreDestination,
+};
 use async_trait::async_trait;
 use ssh2::{self, ErrorCode, OpenFlags, Session};
 use std::{
@@ -13,8 +16,7 @@ pub struct SftpImpl {
     #[allow(dead_code)]
     session: ssh2::Session,
     sftp: ssh2::Sftp,
-    #[allow(dead_code)]
-    destination_path: PathBuf,
+    base_remote_path: PathBuf,
 }
 
 impl SftpImpl {
@@ -23,8 +25,8 @@ impl SftpImpl {
         path_descriptor: Arc<PathDescriptor>,
         host: &str,
         username: &str,
-        priv_key_path: impl AsRef<Path>,
-        destination_path: impl Into<PathBuf>,
+        priv_key: IdentitySource,
+        base_remote_path: impl Into<PathBuf>,
     ) -> Result<Self, SftpError> {
         let mut session = Session::new().map_err(SftpError::SessionInitError)?;
 
@@ -32,44 +34,40 @@ impl SftpImpl {
         session.set_tcp_stream(tcp);
         session.handshake().map_err(SftpError::HandshakeFailed)?;
 
-        if !priv_key_path.as_ref().exists() {
-            return Err(SftpError::PrivKeyNotFoundInPath(
-                priv_key_path.as_ref().to_owned(),
-            ));
-        }
+        let priv_key = priv_key.into_key()?;
 
         session
-            .userauth_pubkey_file(username, None, priv_key_path.as_ref(), None)
+            .userauth_pubkey_memory(username, None, &priv_key, None)
             .map_err(SftpError::PubKeyAuthError)?;
 
         let sftp = session.sftp().map_err(SftpError::SftpChannelOpenFailed)?;
 
-        let dest_dir = destination_path.into();
-        sftp.opendir(&dest_dir)
-            .map_err(|_e| SftpError::DestPathNotFound(dest_dir.clone()))?;
+        let base_remote_path = simplify_virtual_path(&base_remote_path.into());
 
         let result = SftpImpl {
             path_descriptor,
             session,
             sftp,
-            destination_path: dest_dir,
+            base_remote_path,
         };
+
         Ok(result)
     }
 
+    fn resolve(&self, path: impl AsRef<Path>) -> PathBuf {
+        self.base_remote_path.join(path)
+    }
+
     pub fn ls<P: AsRef<Path>>(&self, path: P) -> Result<Vec<PathBuf>, SftpError> {
-        let contents = self
-            .sftp
-            .readdir(path.as_ref())
-            .map_err(SftpError::LsFailed)?;
+        let path = self.resolve(path.as_ref());
+        let contents = self.sftp.readdir(path).map_err(SftpError::LsFailed)?;
         let names = contents.into_iter().map(|v| v.0).collect();
         Ok(names)
     }
 
     pub fn del<P: AsRef<Path>>(&self, path: P) -> Result<(), SftpError> {
-        self.sftp
-            .unlink(path.as_ref())
-            .map_err(SftpError::DelFileFailed)
+        let path = self.resolve(path.as_ref());
+        self.sftp.unlink(&path).map_err(SftpError::DelFileFailed)
     }
 
     fn copy_buffers(
@@ -94,6 +92,7 @@ impl SftpImpl {
     }
 
     pub fn put<P: AsRef<Path>, Q: AsRef<Path>>(&self, from: P, to: Q) -> Result<(), SftpError> {
+        let to = self.resolve(to.as_ref());
         if !from.as_ref().exists() {
             return Err(SftpError::SourceFileNotFound(from.as_ref().to_owned()));
         }
@@ -103,7 +102,7 @@ impl SftpImpl {
         let dest_file = self
             .sftp
             .open_mode(
-                to.as_ref(),
+                to,
                 OpenFlags::WRITE | OpenFlags::CREATE,
                 0o600,
                 ssh2::OpenType::File,
@@ -121,10 +120,12 @@ impl SftpImpl {
         from: P,
         to: Q,
     ) -> Result<(), SftpError> {
+        let to = self.resolve(to.as_ref());
+
         let dest_file = self
             .sftp
             .open_mode(
-                to.as_ref(),
+                to,
                 OpenFlags::WRITE | OpenFlags::CREATE,
                 0o600,
                 ssh2::OpenType::File,
@@ -140,9 +141,11 @@ impl SftpImpl {
     }
 
     pub fn get_to_memory<Q: AsRef<Path>>(&self, from: Q) -> Result<Vec<u8>, SftpError> {
+        let from = self.resolve(from.as_ref());
+
         let mut dest_file = self
             .sftp
-            .open(from.as_ref())
+            .open(from)
             .map_err(SftpError::OpenDestinationFileToReadFailed)?;
 
         let mut result = Vec::new();
@@ -176,7 +179,13 @@ impl SftpImpl {
     }
 
     pub fn dir_exists<P: AsRef<Path>>(&self, path: P) -> Result<bool, SftpError> {
-        match self.sftp.readdir(path.as_ref()) {
+        let path = self.resolve(path.as_ref());
+        self.dir_exists_low_level(path)
+    }
+
+    // Same as dir_exists, but without resolving
+    fn dir_exists_low_level<P: AsRef<Path>>(&self, path: P) -> Result<bool, SftpError> {
+        match self.sftp.readdir(path) {
             Ok(_) => Ok(true),
             Err(e) => {
                 if e.code() == ErrorCode::SFTP(libssh2_sys::LIBSSH2_FX_NO_SUCH_FILE) {
@@ -189,7 +198,8 @@ impl SftpImpl {
     }
 
     pub fn file_exists<P: AsRef<Path>>(&self, path: P) -> Result<bool, SftpError> {
-        match self.sftp.open(path.as_ref()) {
+        let path = self.resolve(path.as_ref());
+        match self.sftp.open(path) {
             Ok(_) => Ok(true),
             Err(e) => {
                 if e.code() == ErrorCode::SFTP(libssh2_sys::LIBSSH2_FX_NO_SUCH_FILE) {
@@ -201,10 +211,30 @@ impl SftpImpl {
         }
     }
 
-    pub fn mkdir<P: AsRef<Path>>(&self, path: P) -> Result<(), SftpError> {
+    /// Functionality of mkdir, but without resolving
+    fn mkdir_low_level<P: AsRef<Path>>(&self, path: P) -> Result<(), SftpError> {
+        if self.dir_exists_low_level(path.as_ref())? {
+            return Ok(());
+        }
         self.sftp
             .mkdir(path.as_ref(), 0o700)
             .map_err(SftpError::MkdirFailed)
+    }
+
+    /// Functionality of `mkdir_p`, but without resolving
+    fn mkdir_p_low_level(&self, path: &Path) -> Result<(), SftpError> {
+        if self.dir_exists(path)? {
+            return Ok(());
+        }
+
+        let parents = get_all_parents_for_mkdir_p(path);
+        for p in parents {
+            if !self.dir_exists(&p)? {
+                self.mkdir_low_level(&p)?;
+            }
+        }
+
+        self.mkdir_low_level(path)
     }
 }
 
@@ -216,6 +246,8 @@ pub enum SftpError {
     HandshakeFailed(ssh2::Error),
     #[error("Public key isn't found in path {0}")]
     PrivKeyNotFoundInPath(PathBuf),
+    #[error("Public key isn't found in path {0}")]
+    PrivKeyReadError(std::io::Error),
     #[error("Public key auth failed {0}")]
     PubKeyAuthError(ssh2::Error),
     #[error("Opening sftp channel {0}")]
@@ -259,16 +291,66 @@ fn get_all_parents_for_mkdir_p<P: AsRef<Path>>(path: P) -> Vec<PathBuf> {
     result.into_iter().rev().collect()
 }
 
+/// Simplifies cases of `abc/./xyz` to `abc/xyz`... and similar.
+fn simplify_virtual_path(path: &Path) -> PathBuf {
+    let mut result = PathBuf::new();
+    let mut stack = Vec::new();
+
+    for comp in path.components() {
+        match comp {
+            std::path::Component::Prefix(_) | std::path::Component::RootDir => {
+                result.push(comp);
+            }
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir => {
+                if let Some(last) = stack.pop() {
+                    if matches!(last, std::path::Component::Normal(_)) {
+                        continue;
+                    }
+                    stack.push(last); // can't pop root/prefix
+                    stack.push(comp);
+                } else {
+                    stack.push(comp);
+                }
+            }
+            std::path::Component::Normal(_) => stack.push(comp),
+        }
+    }
+
+    for comp in stack {
+        result.push(comp);
+    }
+
+    result
+}
+
 #[async_trait]
 impl StoreDestination for SftpImpl {
     type Error = anyhow::Error;
 
     async fn init(&self) -> Result<(), Self::Error> {
+        if !self.dir_exists(&self.base_remote_path)? {
+            self.mkdir_p_low_level(&self.base_remote_path)?;
+        }
+        self.sftp
+            .opendir(&self.base_remote_path)
+            .map_err(|_e| SftpError::DestPathNotFound(self.base_remote_path.clone()))?;
+
         Ok(())
     }
 
     async fn ls(&self, path: &Path) -> Result<Vec<PathBuf>, Self::Error> {
-        self.ls(path).map_err(Into::into)
+        let result = self.ls(path)?;
+        let result = result
+            .into_iter()
+            .map(|p| {
+                simplify_virtual_path(&p)
+                    .strip_prefix(&self.base_remote_path)
+                    .map(std::borrow::ToOwned::to_owned)
+                    .unwrap_or(p)
+            })
+            .collect::<Vec<_>>();
+        Ok(result)
     }
 
     async fn del_file(&self, path: &Path) -> Result<(), Self::Error> {
@@ -288,18 +370,19 @@ impl StoreDestination for SftpImpl {
     }
 
     async fn mkdir_p(&self, path: &Path) -> Result<(), Self::Error> {
-        if self.dir_exists(path)? {
+        let path_resolved = self.resolve(path);
+        if self.dir_exists(&path_resolved)? {
             return Ok(());
         }
 
         let parents = get_all_parents_for_mkdir_p(path);
         for p in parents {
             if !self.dir_exists(&p)? {
-                self.mkdir(&p)?;
+                self.mkdir_low_level(self.resolve(p))?;
             }
         }
 
-        self.mkdir(path).map_err(Into::into)
+        self.mkdir_low_level(path_resolved).map_err(Into::into)
     }
 
     async fn dir_exists(&self, path: &Path) -> Result<bool, Self::Error> {
