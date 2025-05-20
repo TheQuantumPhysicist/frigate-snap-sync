@@ -58,11 +58,36 @@ impl SftpImpl {
         self.base_remote_path.join(path)
     }
 
-    pub fn ls<P: AsRef<Path>>(&self, path: P) -> Result<Vec<PathBuf>, SftpError> {
+    fn ls_inner<P: AsRef<Path>>(&self, path: P) -> Result<Vec<PathBuf>, SftpError> {
         let path = self.resolve(path.as_ref());
         let contents = self.sftp.readdir(path).map_err(SftpError::LsFailed)?;
         let names = contents.into_iter().map(|v| v.0).collect();
         Ok(names)
+    }
+
+    pub fn init(&self) -> Result<(), SftpError> {
+        if !self.dir_exists(&self.base_remote_path)? {
+            self.mkdir_p_low_level(&self.base_remote_path)?;
+        }
+        self.sftp
+            .opendir(&self.base_remote_path)
+            .map_err(|_e| SftpError::DestPathNotFound(self.base_remote_path.clone()))?;
+
+        Ok(())
+    }
+
+    pub fn ls(&self, path: &Path) -> Result<Vec<PathBuf>, SftpError> {
+        let result = self.ls_inner(path)?;
+        let result = result
+            .into_iter()
+            .map(|p| {
+                simplify_virtual_path(&p)
+                    .strip_prefix(&self.base_remote_path)
+                    .map(std::borrow::ToOwned::to_owned)
+                    .unwrap_or(p)
+            })
+            .collect::<Vec<_>>();
+        Ok(result)
     }
 
     pub fn del<P: AsRef<Path>>(&self, path: P) -> Result<(), SftpError> {
@@ -236,6 +261,22 @@ impl SftpImpl {
 
         self.mkdir_low_level(path)
     }
+
+    fn mkdir_p(&self, path: &Path) -> Result<(), SftpError> {
+        let path_resolved = self.resolve(path);
+        if self.dir_exists(&path_resolved)? {
+            return Ok(());
+        }
+
+        let parents = get_all_parents_for_mkdir_p(path);
+        for p in parents {
+            if !self.dir_exists(&p)? {
+                self.mkdir_low_level(self.resolve(p))?;
+            }
+        }
+
+        self.mkdir_low_level(path_resolved).map_err(Into::into)
+    }
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -335,28 +376,11 @@ impl StoreDestination for SftpImpl {
     type Error = anyhow::Error;
 
     async fn init(&self) -> Result<(), Self::Error> {
-        if !self.dir_exists(&self.base_remote_path)? {
-            self.mkdir_p_low_level(&self.base_remote_path)?;
-        }
-        self.sftp
-            .opendir(&self.base_remote_path)
-            .map_err(|_e| SftpError::DestPathNotFound(self.base_remote_path.clone()))?;
-
-        Ok(())
+        self.init().map_err(Into::into)
     }
 
     async fn ls(&self, path: &Path) -> Result<Vec<PathBuf>, Self::Error> {
-        let result = self.ls(path)?;
-        let result = result
-            .into_iter()
-            .map(|p| {
-                simplify_virtual_path(&p)
-                    .strip_prefix(&self.base_remote_path)
-                    .map(std::borrow::ToOwned::to_owned)
-                    .unwrap_or(p)
-            })
-            .collect::<Vec<_>>();
-        Ok(result)
+        self.ls(path).map_err(Into::into)
     }
 
     async fn del_file(&self, path: &Path) -> Result<(), Self::Error> {
@@ -376,19 +400,7 @@ impl StoreDestination for SftpImpl {
     }
 
     async fn mkdir_p(&self, path: &Path) -> Result<(), Self::Error> {
-        let path_resolved = self.resolve(path);
-        if self.dir_exists(&path_resolved)? {
-            return Ok(());
-        }
-
-        let parents = get_all_parents_for_mkdir_p(path);
-        for p in parents {
-            if !self.dir_exists(&p)? {
-                self.mkdir_low_level(self.resolve(p))?;
-            }
-        }
-
-        self.mkdir_low_level(path_resolved).map_err(Into::into)
+        self.mkdir_p(path).map_err(Into::into)
     }
 
     async fn dir_exists(&self, path: &Path) -> Result<bool, Self::Error> {
