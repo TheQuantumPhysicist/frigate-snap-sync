@@ -275,7 +275,7 @@ impl SftpImpl {
             }
         }
 
-        self.mkdir_low_level(path_resolved).map_err(Into::into)
+        self.mkdir_low_level(path_resolved)
     }
 }
 
