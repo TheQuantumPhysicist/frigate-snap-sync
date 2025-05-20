@@ -2,6 +2,7 @@
     "editor.formatOnSave": true,
     "cSpell.words": [
         "ftyp",
+        "FVIDSYNC",
         "libssh",
         "lscr",
         "mqtt",
@@ -10,6 +11,7 @@
         "realpath"
     ],
     "terminal.integrated.env.osx": {
-        "RUST_LOG": "trace"
+        "RUST_LOG": "trace",
+        "FVIDSYNC_CONTAINERIZED_TESTS": "1",
     },
 }
