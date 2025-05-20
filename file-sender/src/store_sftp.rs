@@ -295,21 +295,27 @@ fn get_all_parents_for_mkdir_p<P: AsRef<Path>>(path: P) -> Vec<PathBuf> {
 fn simplify_virtual_path(path: &Path) -> PathBuf {
     let mut result = PathBuf::new();
     let mut stack = Vec::new();
+    let is_absolute = path.is_absolute();
 
     for comp in path.components() {
         match comp {
-            std::path::Component::Prefix(_) | std::path::Component::RootDir => {
+            std::path::Component::Prefix(_) => result.push(comp),
+            std::path::Component::RootDir => {
                 result.push(comp);
+                stack.clear(); // root resets the stack
             }
             std::path::Component::CurDir => {}
             std::path::Component::ParentDir => {
                 if let Some(last) = stack.pop() {
                     if matches!(last, std::path::Component::Normal(_)) {
-                        continue;
+                        // dropped
+                    } else {
+                        stack.push(last);
+                        if !is_absolute {
+                            stack.push(comp);
+                        }
                     }
-                    stack.push(last); // can't pop root/prefix
-                    stack.push(comp);
-                } else {
+                } else if !is_absolute {
                     stack.push(comp);
                 }
             }
@@ -395,5 +401,65 @@ impl StoreDestination for SftpImpl {
 
     fn path_descriptor(&self) -> &Arc<PathDescriptor> {
         &self.path_descriptor
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_simplify_virtual_path() {
+        use std::path::{Path, PathBuf};
+
+        let s = |p| simplify_virtual_path(Path::new(p));
+
+        // Basic . and ..
+        assert_eq!(s("a/./.."), PathBuf::from(""));
+        assert_eq!(s("a/./b/../c"), PathBuf::from("a/c"));
+        assert_eq!(s("a/./b"), PathBuf::from("a/b"));
+        assert_eq!(s("./a/b"), PathBuf::from("a/b"));
+        assert_eq!(s("a/b/."), PathBuf::from("a/b"));
+        assert_eq!(s("."), PathBuf::from(""));
+        assert_eq!(s("./."), PathBuf::from(""));
+        assert_eq!(s("a/././b"), PathBuf::from("a/b"));
+        assert_eq!(s("a//b"), PathBuf::from("a/b"));
+        assert_eq!(s("a///b"), PathBuf::from("a/b"));
+        assert_eq!(s("a/./b/./c"), PathBuf::from("a/b/c"));
+        assert_eq!(s("a/./b/."), PathBuf::from("a/b"));
+        assert_eq!(s("a/./b/./"), PathBuf::from("a/b"));
+        assert_eq!(s(""), PathBuf::from(""));
+
+        // Absolute paths
+        assert_eq!(s("/a/./b"), PathBuf::from("/a/b"));
+        assert_eq!(s("/./a/b"), PathBuf::from("/a/b"));
+        assert_eq!(s("/a/b/."), PathBuf::from("/a/b"));
+        assert_eq!(s("/./"), PathBuf::from("/"));
+        assert_eq!(s("/"), PathBuf::from("/"));
+
+        // Parent resolution
+        assert_eq!(s("a/.."), PathBuf::from(""));
+        assert_eq!(s("a/b/.."), PathBuf::from("a"));
+        assert_eq!(s("a/b/../.."), PathBuf::from(""));
+        assert_eq!(s("a/b/../../.."), PathBuf::from(".."));
+        assert_eq!(s("a/./b/../c"), PathBuf::from("a/c"));
+        assert_eq!(s("./a/../b/."), PathBuf::from("b"));
+        assert_eq!(s("/a/b/../c"), PathBuf::from("/a/c"));
+        assert_eq!(s("/a/../../b"), PathBuf::from("/b"));
+
+        // Relative paths with leading ..
+        assert_eq!(s("../../a/b"), PathBuf::from("../../a/b"));
+        assert_eq!(s("../../../a"), PathBuf::from("../../../a"));
+        assert_eq!(s("../a"), PathBuf::from("../a"));
+        assert_eq!(s("../.."), PathBuf::from("../.."));
+        assert_eq!(s(".."), PathBuf::from(".."));
+        assert_eq!(s("./../a"), PathBuf::from("../a"));
+
+        // Absolute paths trying to go above root
+        assert_eq!(s("/.."), PathBuf::from("/"));
+        assert_eq!(s("/../.."), PathBuf::from("/"));
+
+        // Redundant parent dirs
+        assert_eq!(s("a/b/../../c"), PathBuf::from("c"));
     }
 }
