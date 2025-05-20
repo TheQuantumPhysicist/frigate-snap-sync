@@ -7,8 +7,6 @@ use async_trait::async_trait;
 
 use crate::path_descriptor::PathDescriptor;
 
-// TODO: make this async by using blocking ops in tokio
-
 /// A representation of store location, remote possibly, where we data can be sent.
 /// All the functions (docs) in this trait assume that we're dealing with a remote system.
 /// However, this also applies to local systems.
@@ -44,5 +42,5 @@ pub trait StoreDestination: Send + Sync {
     async fn file_exists(&self, path: &Path) -> Result<bool, Self::Error>;
 
     /// Returns a local copy of the PathDescriptor object. This is done primarily to simplify some processes.
-    fn path_descriptor(&self) -> &Arc<PathDescriptor>;
+    fn path_descriptor(&self) -> Arc<PathDescriptor>;
 }

@@ -1,6 +1,5 @@
-use std::{fmt::Display, path::PathBuf, str::FromStr};
-
 use crate::store_sftp::SftpError;
+use std::{fmt::Display, path::PathBuf, str::FromStr};
 
 const LOCAL_PREFIX: &str = "local";
 const SFTP_PREFIX: &str = "sftp";

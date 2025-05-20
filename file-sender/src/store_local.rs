@@ -109,7 +109,7 @@ impl StoreDestination for LocalStore {
         Ok(self.resolve(&path).is_file())
     }
 
-    fn path_descriptor(&self) -> &Arc<PathDescriptor> {
-        &self.path_descriptor
+    fn path_descriptor(&self) -> Arc<PathDescriptor> {
+        self.path_descriptor.clone()
     }
 }

@@ -10,7 +10,7 @@ use std::{
     sync::Arc,
 };
 use store_local::LocalStore;
-use store_sftp::SftpImpl;
+use store_sftp::AsyncSftpImpl;
 use store_virtual::InMemoryFileSystem;
 use traits::StoreDestination;
 
@@ -49,7 +49,7 @@ fn make_sftp_store(
     priv_key_path: IdentitySource,
     destination_path: impl Into<PathBuf>,
 ) -> anyhow::Result<Arc<dyn StoreDestination<Error = anyhow::Error>>> {
-    let sftp = SftpImpl::new_with_public_key(
+    let sftp = AsyncSftpImpl::new_with_public_key(
         path_descriptor,
         host,
         username,

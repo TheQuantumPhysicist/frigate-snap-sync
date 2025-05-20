@@ -101,8 +101,8 @@ impl StoreDestination for InMemoryFileSystem {
         path.is_file().context("is_file")
     }
 
-    fn path_descriptor(&self) -> &Arc<PathDescriptor> {
-        &self.path_descriptor
+    fn path_descriptor(&self) -> Arc<PathDescriptor> {
+        self.path_descriptor.clone()
     }
 }
 
