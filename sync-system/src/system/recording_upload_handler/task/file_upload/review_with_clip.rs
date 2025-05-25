@@ -26,7 +26,8 @@ impl ReviewWithClip {
     fn alternative_name_suffix(&self, flip: bool) -> &str {
         #[allow(clippy::if_not_else)]
         if self.alternative_upload != flip
-        // We use '!= flip' as an XOR operation that flips the boolean
+        // We use '!= flip' as an XOR operation that flips the boolean on demand
+        // Remember: XORing with `true` always flips/toggles the operand.
         {
             "-1"
         } else {
@@ -36,18 +37,29 @@ impl ReviewWithClip {
 
     /// The alternative path to the current setting.
     /// We use this to delete this file when the first upload is complete.
+    /// So two versions are uploaded, say with suffixes `-0` and `-1`.
+    /// Once we upload `-0`, we delete the `-1`, and vice-versa.
+    /// This helps in preventing deleting a copy before a better copy is uploaded.
     pub fn alternative_path(&self) -> PathBuf {
+        self.upload_dir().join(self.file_name_impl(true))
+    }
+
+    /// Params:
+    /// alternative: The alternative path to the current setting.
+    /// We use this to delete this file when the first upload is complete.
+    /// So two versions are uploaded, say with suffixes `-0` and `-1`.
+    /// Once we upload `-0`, we delete the `-1`, and vice-versa.
+    /// This helps in preventing deleting a copy before a better copy is uploaded.
+    fn file_name_impl(&self, alternative: bool) -> PathBuf {
         let datetime = chrono::Local::now()
             .format("%Y-%m-%d_%H-%M-%S%z")
             .to_string();
-        // TODO: Perhaps there's a better model to do this that's incorporated in UploadableFile trait
-        // instead of manually recreating the full thing.
-        let file_name = format!(
+        format!(
             "RecordingClip-{}-{datetime}{}.mp4",
             self.review.camera_name(),
-            self.alternative_name_suffix(true)
-        );
-        self.upload_dir().join(file_name)
+            self.alternative_name_suffix(alternative)
+        )
+        .into()
     }
 }
 
@@ -57,15 +69,7 @@ impl UploadableFile for ReviewWithClip {
     }
 
     fn file_name(&self) -> std::path::PathBuf {
-        let datetime = chrono::Local::now()
-            .format("%Y-%m-%d_%H-%M-%S%z")
-            .to_string();
-        format!(
-            "RecordingClip-{}-{datetime}{}.mp4",
-            self.review.camera_name(),
-            self.alternative_name_suffix(false)
-        )
-        .into()
+        self.file_name_impl(false)
     }
 
     fn upload_dir(&self) -> std::path::PathBuf {
