@@ -9,7 +9,7 @@ use std::{
 const DEFAULT_FRIGATE_TOPIC_PREFIX: &str = "frigate";
 const DEFAULT_MQTT_PORT: u16 = 1883;
 const DEFAULT_MQTT_KEEP_ALIVE_SECONDS: u64 = 5;
-const DEFAULT_MQTT_CLIENT_ID: &str = "sam-frigate-video-sync";
+const DEFAULT_MQTT_CLIENT_ID: &str = "sam-frigate-snap-sync";
 
 #[derive(thiserror::Error, Debug)]
 pub enum ConfigError {
