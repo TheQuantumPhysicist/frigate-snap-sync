@@ -39,7 +39,9 @@ pub async fn run() -> anyhow::Result<()> {
     let (stop_sender, stop_receiver) = tokio::sync::mpsc::unbounded_channel();
 
     ctrlc::set_handler(move || {
-        tracing::info!("Sending a terminate (Ctrl+C) signal");
+        tracing::info!(
+            "Sending a terminate (Ctrl+C) signal - Wait to ensure all uploads have finished"
+        );
         stop_sender
             .send(())
             .expect("Could not send signal on channel.");
