@@ -1,0 +1,12 @@
+[package]
+name = "options"
+edition.workspace = true
+rust-version.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+clap = { workspace = true, features = ["derive"]}
+
+[lints]
+workspace = true

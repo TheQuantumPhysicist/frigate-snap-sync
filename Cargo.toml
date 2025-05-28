@@ -11,6 +11,7 @@ members = [
     "logging",
     "mocks",
     "mqtt-handler",
+    "options",
     "randomness",
     "sync-system",
     "test-utils",
@@ -21,9 +22,8 @@ members = [
 anyhow = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 
-file-sender = { workspace = true }
-logging = { workspace = true }
-mqtt-handler = { workspace = true }
+clap = { workspace = true }
+options = { workspace = true }
 sync-system = { workspace = true }
 
 [dev-dependencies]
@@ -43,6 +43,7 @@ async-trait = "0.1"
 bytes = "1.10"
 ctor = "0.4"
 chrono = "0.4"
+clap = "4.5"
 ctrlc = "3.4"
 futures = "0.3"
 humantime = "2.2"
@@ -74,6 +75,7 @@ frigate-api-caller = { path = "frigate-api-caller" }
 logging = { path = "logging" }
 mocks = { path = "mocks" }
 mqtt-handler = { path = "mqtt-handler" }
+options = { path = "options" }
 randomness = { path = "randomness" }
 sync-system = { path = "sync-system" }
 test-utils = { path = "test-utils" }

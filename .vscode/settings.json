@@ -9,6 +9,7 @@
         "mqtt",
         "noninteractive",
         "NOPASSWD",
+        "parallelizable",
         "PGID",
         "procps",
         "PUID",

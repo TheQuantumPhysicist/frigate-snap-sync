@@ -94,7 +94,7 @@ impl FromStr for PathDescriptor {
             // Format: local:/home/user/something.txt
             LOCAL_PREFIX => Ok(PathDescriptor::Local(dest_data.into())),
 
-            // Format: sftp:user@example.com:/home/user2/something_else.txt?identity=/home/user/key.pem
+            // Format: sftp:user@example.com:/home/user2/something_else?identity=/home/user/key.pem
             SFTP_PREFIX => {
                 let (user_host, path_query) = dest_data.split_once(':').ok_or(anyhow::anyhow!(
                     "sftp path descriptor does not seem to start with a username@host before ':'"

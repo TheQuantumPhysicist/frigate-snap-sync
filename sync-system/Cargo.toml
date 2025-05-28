@@ -12,6 +12,7 @@ ctrlc = { workspace = true }
 futures = { workspace = true }
 humantime = { workspace = true }
 itertools = { workspace = true }
+options = { workspace = true }
 serde_yml = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }

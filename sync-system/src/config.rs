@@ -13,11 +13,11 @@ const DEFAULT_MQTT_CLIENT_ID: &str = "sam-frigate-snap-sync";
 
 #[derive(thiserror::Error, Debug)]
 pub enum ConfigError {
-    #[error("Config file doesn't exist in the provided (or default) path: {0}")]
+    #[error("Config file doesn't exist in the provided path. Given path: `{0}`")]
     ConfigFileDoesNotExist(PathBuf),
-    #[error("File exists but it could not be read to a string for parsing: {0}")]
+    #[error("File exists but it could not be read to a string for parsing: `{0}`")]
     FileExistsButCannotBeReadToString(std::io::Error),
-    #[error("Could not parse file to config; either invalid yaml or missing config: {0}")]
+    #[error("Could not parse file to config; either invalid yaml or missing config: `{0}`")]
     FileFormatCouldNotBeParsed(serde_yml::Error),
 }
 

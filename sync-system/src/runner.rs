@@ -3,6 +3,7 @@ use file_sender::{make_store, path_descriptor::PathDescriptor};
 use frigate_api_caller::{config::FrigateApiConfig, make_frigate_client};
 use logging::init_logging;
 use mqtt_handler::config::MqttHandlerConfig;
+use options::run_options::start_options::StartOptions;
 use std::sync::Arc;
 
 impl From<&VideoSyncConfig> for FrigateApiConfig {
@@ -28,10 +29,10 @@ impl From<&VideoSyncConfig> for MqttHandlerConfig {
     }
 }
 
-pub async fn run() -> anyhow::Result<()> {
+pub async fn run(options: StartOptions) -> anyhow::Result<()> {
     init_logging();
 
-    let config = VideoSyncConfig::from_file_or_default("config.yaml")?;
+    let config = VideoSyncConfig::from_file_or_default(options.config_file_path)?;
 
     let frigate_api_maker = move |cfg: &FrigateApiConfig| make_frigate_client(cfg.clone());
     let file_sender_maker = move |pd: &Arc<PathDescriptor>| make_store(pd);
