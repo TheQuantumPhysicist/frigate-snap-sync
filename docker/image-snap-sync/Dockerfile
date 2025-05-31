@@ -14,8 +14,8 @@ RUN apt-get update
 RUN apt-get upgrade -y
 RUN apt-get install -y curl tmux nano net-tools procps htop git build-essential cmake pkg-config libssl-dev sudo
 
-RUN groupadd -g 10246    runner
-RUN useradd  -i 10246 -m runner
+RUN groupadd --gid 10246                runner
+RUN useradd  --gid 10246 --uid 10246 -m runner
 RUN passwd -l runner
 
 USER runner
@@ -28,10 +28,10 @@ ENV PATH="/home/runner/.cargo/bin:$PATH"
 RUN echo "export /home/runner/.cargo/bin:$PATH" > /home/runner/.bashrc
 
 RUN git clone https://github.com/TheQuantumPhysicist/frigate-snap-sync
-RUN cd /home/runner/snap-sync/
-WORKDIR /home/runner/snap-sync/
+RUN cd /home/runner/frigate-snap-sync/
+WORKDIR /home/runner/frigate-snap-sync/
 RUN cargo update
-RUN cargo build --release
+RUN (cargo update && cargo build --release --all) || (git checkout Cargo.lock && cargo build --release --all --locked)
 
 USER root
 
@@ -44,12 +44,11 @@ RUN echo "runner ALL=(ALL) NOPASSWD: /usr/bin/apt-file update" >> /etc/sudoers
 USER runner
 
 RUN mkdir /home/runner/app/
-COPY config.yaml /home/runner/app/
-RUN cp /home/runner/snap-sync/target/release/snap-sync /home/runner/app/
+RUN cp /home/runner/frigate-snap-sync/target/release/snap-sync /home/runner/app/
 RUN cd /home/runner/app/
 WORKDIR /home/runner/app/
 
 # Clean up the source and build dirs
-RUN rm -rf /home/runner/snap-sync/
+RUN rm -rf /home/runner/frigate-snap-sync/
 
-CMD sudo apt-get update && sudo apt-get upgrade -y && /home/runner/app/snap-sync
+CMD sudo apt-get update && sudo apt-get upgrade -y && /home/runner/app/snap-sync start -c /config.yaml
