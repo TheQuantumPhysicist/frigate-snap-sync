@@ -88,13 +88,13 @@ impl BlockingSftpImpl {
                     tracing::trace!(
                         "Creating path failed: `{}`. Error: `{e}`",
                         self.base_remote_path.display()
-                    )
+                    );
                 })
-                .inspect(|_| {
+                .inspect(|()| {
                     tracing::trace!(
                         "Creating base path in init() success: `{}`",
                         self.base_remote_path.display()
-                    )
+                    );
                 })?;
         }
 
@@ -105,13 +105,13 @@ impl BlockingSftpImpl {
                 tracing::trace!(
                     "Opening dir failed. Dir: `{}`. Error: `{e}`",
                     self.base_remote_path.display()
-                )
+                );
             })
             .inspect(|_| {
                 tracing::trace!(
                     "Opening dir in init success. Dir: `{}`.",
                     self.base_remote_path.display()
-                )
+                );
             })?;
 
         Ok(())
