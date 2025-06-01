@@ -25,6 +25,6 @@ mockall::mock! {
         async fn get_to_memory(&self, from: &Path) -> Result<Vec<u8>, anyhow::Error>;
         async fn dir_exists(&self, path: &Path) -> Result<bool, anyhow::Error>;
         async fn file_exists(&self, path: &Path) -> Result<bool, anyhow::Error>;
-        fn path_descriptor(&self) -> Arc<PathDescriptor>;
+        fn path_descriptor(&self) -> &Arc<PathDescriptor>;
     }
 }

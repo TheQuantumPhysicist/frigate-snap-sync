@@ -318,10 +318,6 @@ impl BlockingSftpImpl {
 
         self.mkdir_low_level(path_resolved)
     }
-
-    pub fn path_descriptor(&self) -> &Arc<PathDescriptor> {
-        &self.path_descriptor
-    }
 }
 
 fn get_all_parents_for_mkdir_p<P: AsRef<Path>>(path: P) -> Vec<PathBuf> {
@@ -416,8 +412,8 @@ impl StoreDestination for BlockingSftpImpl {
         self.file_exists(path).map_err(Into::into)
     }
 
-    fn path_descriptor(&self) -> Arc<PathDescriptor> {
-        self.path_descriptor.clone()
+    fn path_descriptor(&self) -> &Arc<PathDescriptor> {
+        &self.path_descriptor
     }
 }
 

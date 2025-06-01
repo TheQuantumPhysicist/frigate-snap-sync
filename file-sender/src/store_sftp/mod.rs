@@ -12,6 +12,7 @@ use std::{
 
 pub struct AsyncSftpImpl {
     sftp: Arc<tokio::sync::Mutex<blocking::BlockingSftpImpl>>,
+    path_descriptor: Arc<PathDescriptor>,
 }
 
 impl AsyncSftpImpl {
@@ -23,7 +24,7 @@ impl AsyncSftpImpl {
         base_remote_path: impl Into<PathBuf>,
     ) -> Result<Self, SftpError> {
         let sftp = BlockingSftpImpl::new_with_public_key(
-            path_descriptor,
+            path_descriptor.clone(),
             host,
             username,
             priv_key,
@@ -32,6 +33,7 @@ impl AsyncSftpImpl {
 
         let result = Self {
             sftp: Arc::new(tokio::sync::Mutex::new(sftp)),
+            path_descriptor,
         };
 
         Ok(result)
@@ -128,8 +130,8 @@ impl StoreDestination for AsyncSftpImpl {
         Ok(result)
     }
 
-    fn path_descriptor(&self) -> Arc<PathDescriptor> {
-        self.sftp.blocking_lock().path_descriptor().clone()
+    fn path_descriptor(&self) -> &Arc<PathDescriptor> {
+        &self.path_descriptor
     }
 }
 
