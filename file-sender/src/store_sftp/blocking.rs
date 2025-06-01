@@ -10,6 +10,7 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
+use tracing::trace_span;
 
 use super::SftpError;
 
@@ -68,12 +69,50 @@ impl BlockingSftpImpl {
     }
 
     pub fn init(&self) -> Result<(), SftpError> {
+        let span = trace_span!("make_frigate_client");
+        let _enter = span.enter();
+
+        tracing::trace!(
+            "Initializing file sender: {}",
+            self.path_descriptor.to_string()
+        );
+
         if !self.dir_exists(&self.base_remote_path)? {
-            self.mkdir_p_low_level(&self.base_remote_path)?;
+            tracing::trace!(
+                "Path in descriptor does not exist. Creating it: {}",
+                self.base_remote_path.display()
+            );
+
+            self.mkdir_p_low_level(&self.base_remote_path)
+                .inspect_err(|e| {
+                    tracing::trace!(
+                        "Creating path failed: `{}`. Error: `{e}`",
+                        self.base_remote_path.display()
+                    )
+                })
+                .inspect(|_| {
+                    tracing::trace!(
+                        "Creating base path in init() success: `{}`",
+                        self.base_remote_path.display()
+                    )
+                })?;
         }
+
         self.sftp
             .opendir(&self.base_remote_path)
-            .map_err(|_e| SftpError::DestPathNotFound(self.base_remote_path.clone()))?;
+            .map_err(|_e| SftpError::DestPathNotFound(self.base_remote_path.clone()))
+            .inspect_err(|e| {
+                tracing::trace!(
+                    "Opening dir failed. Dir: `{}`. Error: `{e}`",
+                    self.base_remote_path.display()
+                )
+            })
+            .inspect(|_| {
+                tracing::trace!(
+                    "Opening dir in init success. Dir: `{}`.",
+                    self.base_remote_path.display()
+                )
+            })?;
 
         Ok(())
     }
