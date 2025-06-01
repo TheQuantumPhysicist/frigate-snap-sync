@@ -135,40 +135,40 @@ impl StoreDestination for AsyncSftpImpl {
 
 #[derive(thiserror::Error, Debug)]
 pub enum SftpError {
-    #[error("Initialization failed {0}")]
+    #[error("Initialization failed: {0}")]
     SessionInitError(ssh2::Error),
-    #[error("Handshake failed {0}")]
+    #[error("Handshake failed: {0}")]
     HandshakeFailed(ssh2::Error),
-    #[error("Public key isn't found in path {0}")]
+    #[error("Public key isn't readable in path. Error: {0}")]
     PrivKeyNotFoundInPath(PathBuf),
-    #[error("Public key isn't found in path {0}")]
+    #[error("Private key isn't readable in path. Error: {0}")]
     PrivKeyReadError(std::io::Error),
-    #[error("Public key auth failed {0}")]
+    #[error("Public key auth failed: {0}")]
     PubKeyAuthError(ssh2::Error),
-    #[error("Opening sftp channel {0}")]
+    #[error("Opening sftp channel: {0}")]
     SftpChannelOpenFailed(ssh2::Error),
-    #[error("List dir contents failed {0}")]
+    #[error("List dir contents failed: {0}")]
     LsFailed(ssh2::Error),
-    #[error("Del file failed {0}")]
+    #[error("Del file failed: {0}")]
     DelFileFailed(ssh2::Error),
-    #[error("Mkdir failed {0}")]
+    #[error("Mkdir failed: {0}")]
     MkdirFailed(ssh2::Error),
-    #[error("Open file to write failed {0}")]
+    #[error("Open file to write failed: {0}")]
     OpenDestinationFileToWriteFailed(ssh2::Error),
-    #[error("Open file to read failed {0}")]
+    #[error("Open file to read failed: {0}")]
     OpenDestinationFileToReadFailed(ssh2::Error),
-    #[error("Could not find source file for put {0}")]
+    #[error("Could not find source file for put: {0}")]
     SourceFileNotFound(PathBuf),
-    #[error("Destination path not found {0}")]
+    #[error("Destination path not found: {0}")]
     DestPathNotFound(PathBuf),
-    #[error("Could not open source file for put {0}")]
+    #[error("Could not open source file for put: {0}")]
     SourceFileOpenFailed(PathBuf, std::io::Error),
-    #[error("Copy file for put failed {0}")]
+    #[error("Copy file for put failed: {0}")]
     FileCopyForPutFailed(std::io::Error),
-    #[error("Dir exists check error {0}")]
+    #[error("Dir exists check error: {0}")]
     DirExistsCheckError(ssh2::Error),
-    #[error("Read source file buffer error {0}")]
+    #[error("Read source file buffer error: {0}")]
     ReadBufferError(std::io::Error),
-    #[error("Read remote file error {0}")]
+    #[error("Read remote file error: {0}")]
     ReadRemoteFileError(std::io::Error),
 }
