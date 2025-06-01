@@ -150,3 +150,23 @@ impl From<Vec<Arc<PathDescriptor>>> for PathDescriptors {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn workspace_root() -> std::path::PathBuf {
+        use std::str::FromStr;
+        let cargo_manifest_dir = env!("CARGO_MANIFEST_DIR");
+        let cargo_manifest_dir = std::path::PathBuf::from_str(cargo_manifest_dir).unwrap();
+        let workspace_root = cargo_manifest_dir.parent().unwrap();
+        workspace_root.to_owned()
+    }
+
+    #[test]
+    fn example_config() {
+        let _config =
+            VideoSyncConfig::from_file_or_default(workspace_root().join("config.yaml.example"))
+                .unwrap();
+    }
+}
