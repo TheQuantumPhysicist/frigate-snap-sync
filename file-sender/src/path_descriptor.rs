@@ -116,6 +116,8 @@ impl FromStr for PathDescriptor {
 
             // Format: sftp:username=<username>;host=example.com;port=22;remote-path=/home/user2/something_else;identity=/home/user/key.pem
             SFTP_PREFIX => {
+                const ERR: &str = "Must exist from parser";
+
                 let key_vals = parse_key_vals_string(
                     dest_data,
                     dest_type,
@@ -127,8 +129,6 @@ impl FromStr for PathDescriptor {
                     ],
                     &[],
                 )?;
-
-                const ERR: &str = "Must exist from parser";
 
                 let username = key_vals.get(SFTP_KEY_USER).expect(ERR);
                 let host = key_vals.get(SFTP_KEY_HOST).expect(ERR);
@@ -158,7 +158,6 @@ impl FromStr for PathDescriptor {
     }
 }
 
-#[must_use]
 fn parse_key_vals_string(
     input: &str,
     describing_what: &str,
