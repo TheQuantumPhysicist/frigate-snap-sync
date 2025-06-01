@@ -15,10 +15,10 @@ mqtt_client_id: sam-frigate-video-sync
 # You can add as many as you like. They will all be synced
 upload_destinations:
   # Local destinations look like this
-  - local:/home/username/SomeDirectory/video-sync
+  - local:path=/home/username/SomeDirectory/video-sync
   # Sftp destinations look as follow
   # Notice that authentication can only be done with an identity private key file
-  - sftp:user@example.com:/dir/to/upload/to/?identity=/home/user/key.pem
+  - sftp:username=user;host=example.com;remote-path=/dir/to/upload/to/;identity=/home/user/key.pem
 
 # The API address of Frigate. This is used to retrieve extra data, like video clips
 frigate_api_address: "http://127.0.0.1:5000"
