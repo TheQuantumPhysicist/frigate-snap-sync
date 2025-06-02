@@ -1,8 +1,6 @@
-FROM debian:12
+FROM debian:12-slim
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update
-RUN apt-get install -y locales locales-all
 ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
 ENV LC_CTYPE=en_US.UTF-8
@@ -50,5 +48,7 @@ WORKDIR /home/runner/app/
 
 # Clean up the source and build dirs
 RUN rm -rf /home/runner/frigate-snap-sync/
+RUN rm -rf /home/runner/.rustup/
+RUN rm -rf /home/runner/.cargo/
 
 CMD sudo apt-get update && sudo apt-get upgrade -y && /home/runner/app/snap-sync start -c /config.yaml

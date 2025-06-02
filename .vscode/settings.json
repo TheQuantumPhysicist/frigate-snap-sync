@@ -1,6 +1,7 @@
 {
     "editor.formatOnSave": true,
     "cSpell.words": [
+        "buildx",
         "ftyp",
         "FVIDSYNC",
         "LC_CTYPE",
@@ -14,6 +15,7 @@
         "procps",
         "PUID",
         "realpath",
+        "rustup",
         "tlsv"
     ],
     "terminal.integrated.env.osx": {
