@@ -10,6 +10,9 @@ fi
 # Ensure script runs from its own directory
 cd "$(dirname "$0")"
 
+# Make username lowercase. This is required for tags.
+DOCKER_USERNAME=$(echo "$DOCKER_USERNAME" | tr '[:upper:]' '[:lower:]')
+
 # Login to GHCR
 echo "$DOCKER_PASSWORD" | docker login ghcr.io -u "$DOCKER_USERNAME" --password-stdin
 
