@@ -27,7 +27,7 @@ jobs:
       - name: Update local dependency repositories
         run: sudo apt-get update
       - name: Install dependencies
-        run: sudo apt-get install -yqq --no-install-recommends build-essential podman pkg-config libssl-dev
+        run: sudo apt-get install -yqq --no-install-recommends build-essential podman pkg-config libssl-dev python3 python3-toml
       - name: Install rust
         run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain $(python3 ./build-tools/rust-version-extractor/rust-version-extractor.py)
       - name: Build
@@ -43,6 +43,8 @@ jobs:
         uses: actions/checkout@v2
         with:
           submodules: recursive
+      - name: Install python toml package
+        run: python3 -m pip install toml --break-system-packages --user
       - name: Install rust
         run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain $(python3 ./build-tools/rust-version-extractor/rust-version-extractor.py)
       - name: Build
