@@ -129,7 +129,7 @@ async fn sftp_filesystem(
     init_logging();
 
     // Podman is needed to make this work, so we guard it behind an env var
-    if std::env::var("FVIDSYNC_CONTAINERIZED_TESTS").is_err() {
+    if std::env::var("SNAPSYNC_CONTAINERIZED_TESTS").is_err() {
         eprintln!("Warning: Skipping sftp containerized tests");
         return;
     }

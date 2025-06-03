@@ -1,0 +1,51 @@
+name: build
+
+on:
+  push:
+    branches:
+      - "**" # target all branches
+  pull_request:
+    branches:
+      - master
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_LOG: debug
+  RUST_BACKTRACE: full
+
+jobs:
+  build_ubuntu:
+    env:
+      SNAPSYNC_CONTAINERIZED_TESTS: 1
+    runs-on: ubuntu-latest
+    # if: github.ref == 'refs/heads/master'
+    steps:
+      - name: Checkout repository and submodules
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+      - name: Update local dependency repositories
+        run: sudo apt-get update
+      - name: Install dependencies
+        run: sudo apt-get install -yqq --no-install-recommends build-essential podman pkg-config libssl-dev
+      - name: Install rust
+        run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain $(python3 ./build-tools/rust-version-extractor/rust-version-extractor.py)
+      - name: Build
+        run: cargo build --release --locked
+      - name: Run tests
+        run: cargo test --release --workspace
+
+  build_macos:
+    runs-on: macos-latest
+    # if: github.ref == 'refs/heads/master'
+    steps:
+      - name: Checkout repository and submodules
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+      - name: Install rust
+        run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain $(python3 ./build-tools/rust-version-extractor/rust-version-extractor.py)
+      - name: Build
+        run: cargo build --release --locked
+      - name: Run tests
+        run: cargo test --release --workspace

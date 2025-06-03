@@ -3,7 +3,6 @@
     "cSpell.words": [
         "buildx",
         "ftyp",
-        "FVIDSYNC",
         "LC_CTYPE",
         "libssh",
         "lscr",
@@ -16,10 +15,11 @@
         "PUID",
         "realpath",
         "rustup",
+        "SNAPSYNC",
         "tlsv"
     ],
     "terminal.integrated.env.osx": {
         "RUST_LOG": "trace",
-        "FVIDSYNC_CONTAINERIZED_TESTS": "1",
+        "SNAPSYNC_CONTAINERIZED_TESTS": "1",
     },
 }
