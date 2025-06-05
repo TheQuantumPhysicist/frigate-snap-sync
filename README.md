@@ -78,7 +78,9 @@ With or without software updates, the container updates every day to ensure that
 
 ### Docker User id 10246
 
-Snap-sync runs as a fictitious user with id 10246. This is a random value that is aimed to not be root. Snap-sync does not need any extra privileges from the OS whatsoever. Hence, I forced the user to be that.
+Snap-sync runs in docker containers as a fictitious user with id 10246. This is a random value that is aimed to not be root. Snap-sync does not need any extra privileges from the OS whatsoever. Hence, the user id was forced to be a non-root value to avoid the mistake of using root. This is a security feature meant to make it hard to shoot yourself in the foot by running snap-sync as root.
+
+If you don't like this, that is understandable. Feel free to modify the Dockerfile file and build the docker image as you please.
 
 ## Scalability
 
