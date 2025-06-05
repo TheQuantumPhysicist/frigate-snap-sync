@@ -19,6 +19,14 @@ jobs:
         uses: actions/checkout@v2
         with:
           submodules: recursive
+          fetch-depth: 0 # ensures that all tags are fetched
+
+      - name: Checkout latest version tag
+        run: |
+          git fetch --tags
+          LATEST_TAG=$(git tag --sort=-v:refname | head -n 1)
+          echo "Checking out $LATEST_TAG"
+          git checkout "$LATEST_TAG"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
