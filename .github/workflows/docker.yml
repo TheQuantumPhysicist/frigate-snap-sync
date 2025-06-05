@@ -1,0 +1,30 @@
+name: docker-image
+
+on:
+  push:
+    branches:
+      - "**" # target all branches
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  push_image_from_ubuntu:
+    env:
+      DOCKER_USERNAME: ${{ github.actor }}
+      DOCKER_PASSWORD: ${{ secrets.GHCR_TOKEN }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository and submodules
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Build and push docker image
+        run: bash docker/image-snap-sync/build-and-push.sh
