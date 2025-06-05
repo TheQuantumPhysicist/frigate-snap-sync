@@ -1,18 +1,18 @@
-# Frigate Snap Sync
+# Frigate Snap-Sync
 
-Frigate Snap Sync is a program that works in tandem with Frigate. It responds to Frigate when a snapshot or a review is made (and more can be added), and uploads them to a server(s) of choice.
+Frigate Snap-Sync is a program that works in tandem with Frigate. It responds to Frigate when a snapshot or a review is made (and more can be added), and uploads them to a server(s) of choice.
 
-Frigate Snap Sync uses the mqtt protocol from Frigate to respond to events from Frigate.
+Frigate Snap-Sync uses the mqtt protocol from Frigate to respond to events from Frigate.
 
 ## Configuration
 
-A configuration file is required to run Snap Sync. An example file can be found in this repository in [config.yaml.example](/config.yaml.example).
+A configuration file is required to run Snap-Sync. An example file can be found in this repository in [config.yaml.example](/config.yaml.example).
 
 Copy that example config file to `config.yaml`, modify it, then use it.
 
 ## Running the program
 
-The program is written in Rust, so it can be built easily by first [installing Rust](https://www.rust-lang.org/tools/install), then cloning the repository, then running with:
+The program is written in Rust, so it can be built easily by first [installing Rust](https://www.rust-lang.org/tools/install), then cloning the repository, and then you can run it using."
 
 ```
 cargo run --release -- start
@@ -55,18 +55,18 @@ or
 
 ## How does it look like while it is running?
 
-You just see the logs of what is happening in the program. You can tweak the logging level using the environment variable `RUST_LOG=info` or `RUST_LOG=debug` or `RUST_LOG=trace`, etc. Usually `info` is enough, and is the default. Snap Sync uses the [tracing library](https://docs.rs/tracing/latest/tracing/) for logging.
+You just see the logs of what is happening in the program. You can tweak the logging level using the environment variable `RUST_LOG=info` or `RUST_LOG=debug` or `RUST_LOG=trace`, etc. Usually `info` is enough, and is the default. Snap-Sync uses the [tracing library](https://docs.rs/tracing/latest/tracing/) for logging.
 
-The program is very tolerant of errors. At start, it will attempt to test the Frigate API server and will attempt to connect to the Mqtt server. If it fails, it will notify you, but it will continue and keep trying. This design is by choice to ensure that intermittent failures do not interrupt the operation of Snap Sync. It is not the responsibility of Snap Sync to ensure that Frigate is running correctly.
+The program is very tolerant of errors. At start, it will attempt to test the Frigate API server and will attempt to connect to the Mqtt server. If it fails, it will notify you, but it will continue and keep trying. This design is by choice to ensure that intermittent failures do not interrupt the operation of Snap-Sync. It is not the responsibility of Snap-Sync to ensure that Frigate is running correctly.
 
-Meaning: Once you start Snap Sync the first time, make sure you're not seeing any errors. Then you can forget about it. It will just work.
+Meaning: Once you start Snap-Sync the first time, make sure you're not seeing any errors. Then you can forget about it. It will just work.
 
 ## When does an upload occur?
 
 - When snapshots are enabled AND a snapshot is detected, it will upload the snapshot.
 - When recordings are enabled AND a recording is created, it will upload the recording.
 
-Snap Sync automatically updates its internal state when a change in snapshots or recordings state is detected to decide to upload or ignore recordings and snapshots.
+Snap-Sync automatically updates its internal state when a change in snapshots or recordings state is detected to decide to upload or ignore recordings and snapshots.
 
 ## Running in Docker
 
