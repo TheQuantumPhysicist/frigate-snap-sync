@@ -19,7 +19,7 @@
         "tlsv"
     ],
     "terminal.integrated.env.osx": {
-        "RUST_LOG": "trace",
+        "RUST_LOG": "info",
         "SNAPSYNC_CONTAINERIZED_TESTS": "1",
     },
 }

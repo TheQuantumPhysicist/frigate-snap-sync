@@ -1,12 +1,17 @@
 name: docker-image
 
+# On push to master - left for testing
+# on:
+#   push:
+#     branches:
+#       - "**" # target all branches
+#   pull_request:
+#     branches:
+#       - master
+
 on:
-  push:
-    branches:
-      - "**" # target all branches
-  pull_request:
-    branches:
-      - master
+  schedule:
+    - cron: "0 5 * * *" # 5 AM UTC daily
 
 jobs:
   push_image_from_ubuntu:
