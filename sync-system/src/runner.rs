@@ -30,9 +30,10 @@ impl From<&VideoSyncConfig> for MqttHandlerConfig {
 }
 
 pub async fn run(options: StartOptions) -> anyhow::Result<()> {
+    const PROGRAM_VERSION: &str = env!("CARGO_PKG_VERSION");
+
     init_logging();
 
-    const PROGRAM_VERSION: &str = env!("CARGO_PKG_VERSION");
     tracing::info!("Starting Snap Sync. Version: {}", PROGRAM_VERSION);
 
     let config = VideoSyncConfig::from_file_or_default(options.config_file_path)?;
