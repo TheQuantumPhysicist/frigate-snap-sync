@@ -837,7 +837,7 @@ checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
 
 [[package]]
 name = "file-sender"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -927,7 +927,7 @@ checksum = "28dd6caf6059519a65843af8fe2a3ae298b14b80179855aeb4adc2c1934ee619"
 
 [[package]]
 name = "frigate-api-caller"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1716,7 +1716,7 @@ checksum = "13dc2df351e3202783a1fe0d44375f7295ffb4049267b0f3018346dc122a1d94"
 
 [[package]]
 name = "logging"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "log",
  "thiserror 2.0.12",
@@ -1826,7 +1826,7 @@ dependencies = [
 
 [[package]]
 name = "mocks"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1837,7 +1837,7 @@ dependencies = [
 
 [[package]]
 name = "mqtt-handler"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "bytes",
@@ -2081,7 +2081,7 @@ dependencies = [
 
 [[package]]
 name = "options"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "clap",
 ]
@@ -2484,7 +2484,7 @@ dependencies = [
 
 [[package]]
 name = "randomness"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "rand 0.9.1",
 ]
@@ -3244,7 +3244,7 @@ checksum = "8917285742e9f3e1683f0a9c4e6b57960b7314d0b08d30d1ecd426713ee2eee9"
 
 [[package]]
 name = "snap-sync"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "clap",
@@ -3357,7 +3357,7 @@ dependencies = [
 
 [[package]]
 name = "sync-system"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "chrono",
@@ -3470,7 +3470,7 @@ checksum = "8f50febec83f5ee1df3015341d8bd429f2d1cc62bcba7ea2076759d315084683"
 
 [[package]]
 name = "test-utils"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "rand_chacha 0.9.0",
  "randomness",
@@ -3816,7 +3816,7 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "utils"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "chrono",
  "randomness",
