@@ -1,0 +1,25 @@
+services:
+  frigate:
+    # Fill with frigate settings
+  mosquitto:
+    # Fill with mosquitto settings
+
+  snap-sync:
+    image: ghcr.io/thequantumphysicist/frigate-snap-sync:latest
+    hostname: snap-sync
+    container_name: frigate-snap-sync
+    restart: unless-stopped
+    environment:
+      # Change to `debug`, or even `trace` for more information when debugging
+      RUST_LOG: info
+    volumes:
+      # Any files you need accessible to snap-sync must be owned by user with id 10246
+      # You can achieve this with `chown 10246:10246 -R dir-to-own-to-user-10246`
+      # Do this in the host.
+
+      # Get the example config file from the root directory of the repository
+      # Example file: `config.yaml.example`.
+      # More information in the README.md
+      - ./data-frigate/snap-sync/config.yaml:/config.yaml
+      # This is an example of a private key used for sftp
+      - ./data-frigate/snap-sync/id_rsa:/id_rsa

@@ -6,6 +6,7 @@
         "LC_CTYPE",
         "libssh",
         "lscr",
+        "mosquitto",
         "mqtt",
         "noninteractive",
         "NOPASSWD",
@@ -16,6 +17,7 @@
         "realpath",
         "rustup",
         "SNAPSYNC",
+        "thequantumphysicist",
         "tlsv"
     ],
     "terminal.integrated.env.osx": {

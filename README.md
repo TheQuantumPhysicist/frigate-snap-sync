@@ -70,7 +70,11 @@ Snap Sync automatically updates its internal state when a change in snapshots or
 
 ## Running in Docker
 
-Docker for this project is work in progress. Coming Soon™.
+See the example `docker-compose` file in the [docker](./docker/) directory. You should ensure that Frigate, Mosquitto and Snap-Sync are all within one swarm/compose group. This is because snap-sync requires network access to Mosquitto broker to get updates, and requires access to Frigate to retrieve video clips.
+
+### Docker image updates
+
+With or without software updates, the container updates every day to ensure that the debian being used in the image is the latest one. The container even runs `apt upgrade` on every run to ensure that all libraries are updated.
 
 ## Scalability
 
