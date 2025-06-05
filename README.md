@@ -76,6 +76,10 @@ See the example `docker-compose` file in the [docker](./docker/) directory. You 
 
 With or without software updates, the container updates every day to ensure that the debian being used in the image is the latest one. The container even runs `apt upgrade` on every run to ensure that all libraries are updated.
 
+### Docker User id 10246
+
+Snap-sync runs as a fictitious user with id 10246. This is a random value that is aimed to not be root. Snap-sync does not need any extra privileges from the OS whatsoever. Hence, I forced the user to be that.
+
 ## Scalability
 
 This program is written to be virtually infinitely scalable, as much as you have processing power and bandwidth to upload. It is highly parallelizable (using Rust async) and can run on as many threads as needed. By default, it will use all the threads available. Obviously, it will not occupy them unless needed, as it is light-weight.
