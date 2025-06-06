@@ -11,7 +11,7 @@ name: docker-image
 
 on:
   schedule:
-    - cron: "0 5 * * *" # 5 AM UTC daily
+    - cron: "0 2 * * *" # 5 AM UTC daily
 
 jobs:
   push_image_from_ubuntu:
