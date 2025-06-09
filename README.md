@@ -90,7 +90,7 @@ This program is written to be virtually infinitely scalable, as much as you have
 
 This software does not require opening or listening on any ports. No security measures are needed. Besides, this software is written with no unsafe code and has high standards for safety.
 
-The only note to be made is that the private(s) for accessing the storage server(s). It is assumed that you're using a dedicated remote server for your data storage. It is not recommended, for example, to use the same private key/identity file that you use on your public server that contains sensitive data. You can always spin up new ssh servers for data storage. Even better, do it through a dedicated VPN layer.
+The only note to be made is about the private key(s) for accessing the storage server(s). It is assumed that you're using a dedicated remote server for your data storage. It is not recommended, for example, to use the same private key/identity file that you use on your public server that contains sensitive data. You can always spin up new ssh servers for data storage. Even better, do it through a dedicated VPN layer.
 
 The authors and contributors do not assume any responsibility for the any usage of this software, intended or not.
 
