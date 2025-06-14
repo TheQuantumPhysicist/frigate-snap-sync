@@ -86,6 +86,7 @@ async fn test_store<E: Display + Debug, S: StoreDestination<Error = E> + ?Sized>
 
 #[tokio::test]
 #[rstest]
+#[trace]
 async fn virtual_filesystem(random_seed: Seed) {
     println!("Starting test for in-memory filesystem...");
     let mut rng = make_seedable_rng(random_seed);
@@ -99,6 +100,7 @@ async fn virtual_filesystem(random_seed: Seed) {
 
 #[tokio::test]
 #[rstest]
+#[trace]
 async fn local_filesystem(random_seed: Seed) {
     println!("Starting test for local filesystem...");
     let mut rng = make_seedable_rng(random_seed);
@@ -114,6 +116,7 @@ async fn local_filesystem(random_seed: Seed) {
 
 #[tokio::test]
 #[rstest]
+#[trace]
 async fn sftp_filesystem(
     random_seed: Seed,
     #[values(

@@ -121,7 +121,7 @@ where
 
             tokio::select! {
                 Some(data) = self.mqtt_data_receiver.recv() => {
-                    self.on_mqtt_data_received(data);
+                    self.on_mqtt_data_received(data).await;
                 },
 
                 Some(sender) = camera_state_receiver => {
@@ -162,7 +162,7 @@ where
         Ok(())
     }
 
-    fn on_mqtt_data_received(&mut self, data: CapturedPayloads) {
+    async fn on_mqtt_data_received(&mut self, data: CapturedPayloads) {
         match data {
             CapturedPayloads::CameraRecordingsState(recordings_state) => {
                 tracing::info!(
@@ -191,7 +191,7 @@ where
                     snapshot.image_bytes.len()
                 );
 
-                self.handle_snapshot_payload(snapshot);
+                self.handle_snapshot_payload(snapshot).await;
             }
             CapturedPayloads::Reviews(review) => {
                 tracing::info!(
@@ -200,7 +200,7 @@ where
                     review.id()
                 );
 
-                self.handle_review_payload(review);
+                self.handle_review_payload(review).await;
             }
         }
     }
@@ -278,12 +278,21 @@ where
         }
     }
 
-    fn handle_snapshot_payload(&mut self, snapshot: Arc<Snapshot>) {
+    async fn handle_snapshot_payload(&mut self, snapshot: Arc<Snapshot>) {
         if self
             .cameras_state
             .camera_snapshots_state(&snapshot.camera_label)
         {
             let camera_name = snapshot.camera_label.clone();
+
+            if !self.has_upload_delay_passed().await {
+                tracing::info!(
+                    "Received snapshot for camera {camera_name}, but skipping it because the provided delay of {} seconds has not passed yet",
+                    self.frigate_api_config.delay_after_startup.as_secs()
+                );
+                return;
+            }
+
             tracing::debug!("Sending snapshot for camera {camera_name}");
 
             let send_res = self
@@ -308,12 +317,21 @@ where
         }
     }
 
-    fn handle_review_payload(&mut self, review: Arc<dyn ReviewProps>) {
+    async fn handle_review_payload(&mut self, review: Arc<dyn ReviewProps>) {
         if self
             .cameras_state
             .camera_recordings_state(review.camera_name())
         {
             let camera_name = review.camera_name().to_string();
+
+            if !self.has_upload_delay_passed().await {
+                tracing::info!(
+                    "Received review for camera {camera_name}, but skipping it because the provided delay of {} seconds has not passed yet",
+                    self.frigate_api_config.delay_after_startup.as_secs()
+                );
+                return;
+            }
+
             let id = review.id().to_string();
             tracing::debug!("Sending review for camera {camera_name} with id {id}");
 
@@ -367,6 +385,42 @@ where
         tokio::task::spawn(
             SnapshotsTaskHandler::new(command_receiver, file_sender_maker, path_descriptors).run(),
         )
+    }
+
+    /// Checks whether the uptime value from Frigate is higher than `delay_after_startup` given in config.
+    async fn has_upload_delay_passed(&self) -> bool {
+        const DEFAULT_RESPONSE: bool = true;
+
+        let frigate_api = match self.make_frigate_api() {
+            Ok(f) => f,
+            Err(e) => {
+                tracing::error!(
+                    "Failed to create Frigate API caller to check whether frigate uptime delay has passed. Reverting to default behavior. Error: {e}"
+                );
+                return DEFAULT_RESPONSE;
+            }
+        };
+
+        let uptime = match frigate_api.stats().await {
+            Ok(stats) => stats.uptime(),
+            Err(e) => {
+                tracing::error!(
+                    "Failed to check whether frigate uptime delay has passed. Reverting to default behavior. Error: {e}"
+                );
+                return DEFAULT_RESPONSE;
+            }
+        };
+
+        if uptime >= self.frigate_api_config.delay_after_startup {
+            true
+        } else {
+            tracing::info!(
+                "Delay after uptime has not passed yet. Upload will not happen. Frigate uptime: {} seconds. vs required delay: {} seconds",
+                uptime.as_secs(),
+                self.frigate_api_config.delay_after_startup.as_secs()
+            );
+            false
+        }
     }
 }
 

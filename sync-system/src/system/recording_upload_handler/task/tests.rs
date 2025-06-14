@@ -52,12 +52,14 @@ impl ReviewProps for TestReviewData {
 
 #[tokio::test]
 #[rstest]
+#[trace]
 async fn recording_upload(random_seed: Seed) {
     let mut rng = make_seedable_rng(random_seed);
 
     let frigate_config = FrigateApiConfig {
         frigate_api_base_url: "http://someurl.com:5000/".to_string(),
         frigate_api_proxy: None,
+        delay_after_startup: std::time::Duration::ZERO,
     };
 
     let expected_file_content = Arc::new(Mutex::new(gen_random_bytes(&mut rng, 100..1000)));
@@ -275,12 +277,14 @@ async fn recording_upload(random_seed: Seed) {
 
 #[tokio::test]
 #[rstest]
+#[trace]
 async fn recording_upload_mocked(random_seed: Seed) {
     let mut rng = make_seedable_rng(random_seed);
 
     let frigate_config = FrigateApiConfig {
         frigate_api_base_url: "http://someurl.com:5000/".to_string(),
         frigate_api_proxy: None,
+        delay_after_startup: std::time::Duration::ZERO,
     };
 
     let expected_file_content = Arc::new(Mutex::new(gen_random_bytes(&mut rng, 100..1000)));
@@ -440,12 +444,14 @@ async fn recording_upload_mocked(random_seed: Seed) {
 
 #[tokio::test]
 #[rstest]
+#[trace]
 async fn recording_upload_mocked_failures_then_success(random_seed: Seed) {
     let mut rng = make_seedable_rng(random_seed);
 
     let frigate_config = FrigateApiConfig {
         frigate_api_base_url: "http://someurl.com:5000/".to_string(),
         frigate_api_proxy: None,
+        delay_after_startup: std::time::Duration::ZERO,
     };
 
     let expected_file_content = Arc::new(Mutex::new(gen_random_bytes(&mut rng, 100..1000)));
@@ -616,12 +622,14 @@ async fn recording_upload_mocked_failures_then_success(random_seed: Seed) {
 
 #[tokio::test]
 #[rstest]
+#[trace]
 async fn recording_upload_mocked_failures_return_not_done(random_seed: Seed) {
     let mut rng = make_seedable_rng(random_seed);
 
     let frigate_config = FrigateApiConfig {
         frigate_api_base_url: "http://someurl.com:5000/".to_string(),
         frigate_api_proxy: None,
+        delay_after_startup: std::time::Duration::ZERO,
     };
 
     // Prepare the file sender mock
@@ -711,6 +719,7 @@ async fn recording_upload_mocked_failures_return_not_done(random_seed: Seed) {
 
 #[tokio::test]
 #[rstest]
+#[trace]
 async fn recording_upload_mocked_failures_in_download_then_upload_leads_to_not_done(
     random_seed: Seed,
 ) {
@@ -719,6 +728,7 @@ async fn recording_upload_mocked_failures_in_download_then_upload_leads_to_not_d
     let frigate_config = FrigateApiConfig {
         frigate_api_base_url: "http://someurl.com:5000/".to_string(),
         frigate_api_proxy: None,
+        delay_after_startup: std::time::Duration::ZERO,
     };
 
     let expected_file_content = Arc::new(Mutex::new(gen_random_bytes(&mut rng, 100..1000)));

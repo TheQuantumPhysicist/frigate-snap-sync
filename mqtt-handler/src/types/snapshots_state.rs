@@ -44,6 +44,7 @@ mod tests {
     #[case(b"OFF".to_vec(), Some(false))]
     #[trace]
     #[case(b"abcdefg".to_vec(), None)]
+    #[trace]
     fn snapshots_state(
         random_seed: Seed,
         #[case] payload: Vec<u8>,

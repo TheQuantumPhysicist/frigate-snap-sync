@@ -11,6 +11,7 @@ impl From<&VideoSyncConfig> for FrigateApiConfig {
         Self {
             frigate_api_base_url: config.frigate_api_address().to_string(),
             frigate_api_proxy: config.frigate_api_proxy().map(str::to_string),
+            delay_after_startup: std::time::Duration::ZERO,
         }
     }
 }

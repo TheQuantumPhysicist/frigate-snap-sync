@@ -1,4 +1,4 @@
-use crate::json::review::Review;
+use crate::json::{review::Review, stats::StatsProps};
 use async_trait::async_trait;
 
 #[async_trait]
@@ -12,6 +12,9 @@ pub trait FrigateApi: Send + Sync {
     /// https://demo.frigate.video/api/review/:review_id
     #[must_use]
     async fn review(&self, id: &str) -> anyhow::Result<Review>;
+
+    #[must_use]
+    async fn stats(&self) -> anyhow::Result<Box<dyn StatsProps>>;
 
     /// Returns MP4 clip as raw data
     /// Ok(None) is returned if the request is successful, but the video file is empty (zero bytes).

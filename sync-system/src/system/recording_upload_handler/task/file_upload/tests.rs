@@ -78,6 +78,7 @@ async fn basic_upload_in_mocks() {
     let frigate_config = FrigateApiConfig {
         frigate_api_base_url: "http://someurl.com:5000/".to_string(),
         frigate_api_proxy: None,
+        delay_after_startup: std::time::Duration::ZERO,
     };
 
     let path_descriptors = PathDescriptors {
@@ -113,6 +114,7 @@ async fn basic_upload_in_virtual_filesystem() {
     let frigate_config = FrigateApiConfig {
         frigate_api_base_url: "http://someurl.com:5000/".to_string(),
         frigate_api_proxy: None,
+        delay_after_startup: std::time::Duration::ZERO,
     };
 
     // Prepare the file sender mock

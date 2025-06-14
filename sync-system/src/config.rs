@@ -10,6 +10,7 @@ const DEFAULT_FRIGATE_TOPIC_PREFIX: &str = "frigate";
 const DEFAULT_MQTT_PORT: u16 = 1883;
 const DEFAULT_MQTT_KEEP_ALIVE_SECONDS: u64 = 5;
 const DEFAULT_MQTT_CLIENT_ID: &str = "sam-frigate-snap-sync";
+const DEFAULT_DELAY_AFTER_STARTUP: u64 = 0;
 
 #[derive(thiserror::Error, Debug)]
 pub enum ConfigError {
@@ -37,6 +38,8 @@ pub struct VideoSyncConfig {
 
     #[serde(deserialize_with = "upload_destinations_from_str")]
     upload_destinations: PathDescriptors,
+
+    delay_after_startup: Option<u64>,
 }
 
 impl VideoSyncConfig {
@@ -106,6 +109,14 @@ impl VideoSyncConfig {
 
     pub fn upload_destinations(&self) -> &PathDescriptors {
         &self.upload_destinations
+    }
+
+    pub fn delay_after_startup(&self) -> std::time::Duration {
+        let delay = self
+            .delay_after_startup
+            .unwrap_or(DEFAULT_DELAY_AFTER_STARTUP);
+
+        std::time::Duration::from_secs(delay)
     }
 }
 

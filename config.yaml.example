@@ -22,3 +22,9 @@ upload_destinations:
 
 # The API address of Frigate. This is used to retrieve extra data, like video clips
 frigate_api_address: "http://127.0.0.1:5000"
+
+# How long to wait after Frigate startup to start uploads.
+# In other words: If Frigate restarts, uploads will only happen after the given period has passed.
+# This might be useful in case Frigate takes time after startup to register the desired snapshot/recordings state.
+# The number is in seconds and is integer.
+delay_after_startup: 120

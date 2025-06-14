@@ -3,6 +3,7 @@ pub mod helpers;
 pub mod json;
 pub mod traits;
 
+use crate::json::stats::{Stats, StatsProps};
 use anyhow::Context;
 use async_trait::async_trait;
 use config::FrigateApiConfig;
@@ -104,6 +105,21 @@ impl FrigateApi for FrigateApiClient {
         Ok(result)
     }
 
+    async fn stats(&self) -> anyhow::Result<Box<dyn StatsProps>> {
+        let base_url = &self.config.frigate_api_base_url;
+        let url = format!("{base_url}/api/stats");
+        let request = self
+            .client
+            .request(reqwest::Method::GET, url)
+            .headers(json_headers_map());
+        let response = request.send().await?;
+        let result = response.json::<Stats>().await?;
+
+        tracing::debug!("Call `stats` with response: {:?}", result);
+
+        Ok(Box::new(result))
+    }
+
     async fn recording_clip(
         &self,
         camera_label: &str,
@@ -168,11 +184,13 @@ mod tests {
 
     #[tokio::test]
     #[rstest]
+    #[trace]
     #[ignore = "If you want to run this, set the fixture url then run it"]
     async fn test_call(base_url: String) {
         let config = FrigateApiConfig {
             frigate_api_base_url: base_url,
             frigate_api_proxy: None,
+            delay_after_startup: std::time::Duration::ZERO,
         };
         let frigate_client = make_frigate_client(config).unwrap();
         frigate_client.test_call().await.unwrap();
@@ -180,6 +198,7 @@ mod tests {
 
     #[tokio::test]
     #[rstest]
+    #[trace]
     #[ignore = "If you want to run this, set the fixture url, set the parameters then run it"]
     async fn review(base_url: String) {
         let review_id = "1744534711.333822-vsz5s4";
@@ -187,6 +206,7 @@ mod tests {
         let config = FrigateApiConfig {
             frigate_api_base_url: base_url,
             frigate_api_proxy: None,
+            delay_after_startup: std::time::Duration::ZERO,
         };
         let frigate_client = make_frigate_client(config).unwrap();
         println!(
@@ -197,6 +217,22 @@ mod tests {
 
     #[tokio::test]
     #[rstest]
+    #[trace]
+    #[ignore = "If you want to run this, set the fixture url, set the parameters then run it"]
+    async fn stats(base_url: String) {
+        let config = FrigateApiConfig {
+            frigate_api_base_url: base_url,
+            frigate_api_proxy: None,
+            delay_after_startup: std::time::Duration::ZERO,
+        };
+        let frigate_client = make_frigate_client(config).unwrap();
+        let stats = frigate_client.stats().await.unwrap();
+        println!("Uptime: {:?}", stats.uptime());
+    }
+
+    #[tokio::test]
+    #[rstest]
+    #[trace]
     #[ignore = "If you want to run this, set the fixture url, set the parameters then run it"]
     async fn recording_clip(base_url: String) {
         let camera_label = "my_camera";
@@ -206,6 +242,7 @@ mod tests {
         let config = FrigateApiConfig {
             frigate_api_base_url: base_url,
             frigate_api_proxy: None,
+            delay_after_startup: std::time::Duration::ZERO,
         };
         let frigate_client = make_frigate_client(config).unwrap();
         let mov = frigate_client

@@ -26,6 +26,7 @@ async fn get_task_count(
 
 #[tokio::test]
 #[rstest]
+#[trace]
 async fn upload_snapshot(random_seed: Seed) {
     let mut rng = make_seedable_rng(random_seed);
 
@@ -110,6 +111,7 @@ async fn upload_snapshot(random_seed: Seed) {
 
 #[tokio::test]
 #[rstest]
+#[trace]
 async fn upload_snapshot_mocked(random_seed: Seed) {
     let mut rng = make_seedable_rng(random_seed);
 
@@ -197,6 +199,7 @@ async fn upload_snapshot_mocked(random_seed: Seed) {
 
 #[tokio::test]
 #[rstest]
+#[trace]
 async fn upload_snapshot_mocked_error_mkdir(random_seed: Seed) {
     let mut rng = make_seedable_rng(random_seed);
 

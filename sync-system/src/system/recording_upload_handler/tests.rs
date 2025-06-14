@@ -69,6 +69,7 @@ async fn assert_not_finished_for(
 
 #[tokio::test]
 #[rstest]
+#[trace]
 async fn recordings_task_handler(random_seed: Seed) {
     let mut rng = make_seedable_rng(random_seed);
 
@@ -77,6 +78,7 @@ async fn recordings_task_handler(random_seed: Seed) {
     let frigate_config = FrigateApiConfig {
         frigate_api_base_url: "http://someurl.com:5000/".to_string(),
         frigate_api_proxy: None,
+        delay_after_startup: std::time::Duration::ZERO,
     };
 
     let path_descriptors = PathDescriptors {
@@ -224,6 +226,7 @@ async fn recordings_task_handler(random_seed: Seed) {
 
 #[tokio::test]
 #[rstest]
+#[trace]
 async fn recordings_task_handler_shutdown(random_seed: Seed) {
     let mut rng = make_seedable_rng(random_seed);
 
@@ -232,6 +235,7 @@ async fn recordings_task_handler_shutdown(random_seed: Seed) {
     let frigate_config = FrigateApiConfig {
         frigate_api_base_url: "http://someurl.com:5000/".to_string(),
         frigate_api_proxy: None,
+        delay_after_startup: std::time::Duration::ZERO,
     };
 
     let path_descriptors = PathDescriptors {
@@ -295,6 +299,7 @@ async fn recordings_task_handler_shutdown(random_seed: Seed) {
 
 #[tokio::test]
 #[rstest]
+#[trace]
 async fn recordings_task_handler_timeout_loses_task(random_seed: Seed) {
     let mut rng = make_seedable_rng(random_seed);
 
@@ -303,6 +308,7 @@ async fn recordings_task_handler_timeout_loses_task(random_seed: Seed) {
     let frigate_config = FrigateApiConfig {
         frigate_api_base_url: "http://someurl.com:5000/".to_string(),
         frigate_api_proxy: None,
+        delay_after_startup: std::time::Duration::ZERO,
     };
 
     let path_descriptors = PathDescriptors {
