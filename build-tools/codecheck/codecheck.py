@@ -125,7 +125,7 @@ def check_workspace_and_package_versions_equal():
 # Retrieve an item from arbitrarily nested dicts given a list of keys.
 # E.g. get_from_nested_dicts({'a': {'b': 1, 'c': 2}}, ['a', 'b']) will
 # return 1.
-def get_from_nested_dicts(nested_dicts, keys_list) -> bool:
+def get_from_nested_dicts(nested_dicts, keys_list):
     cur_dict = nested_dicts
     while keys_list:
         key = keys_list.pop(0)
@@ -314,8 +314,8 @@ def check_trailing_whitespaces():
                     if line != line.rstrip():
                         ok = False
                         print(f"{path}: trailing whitespaces at line {line_idx}")
-            except:
-                print(f"{path}: can't check for trailing whitespaces, "
+            except (UnicodeDecodeError, PermissionError) as e:
+                print(f"{path}: can't check for trailing whitespaces ({e}), "
                       "perhaps it should be in 'exempted_files'?")
 
     print()

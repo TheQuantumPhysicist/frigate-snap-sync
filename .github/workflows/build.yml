@@ -21,7 +21,7 @@ jobs:
     # if: github.ref == 'refs/heads/master'
     steps:
       - name: Checkout repository and submodules
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           submodules: recursive
       - name: Update local dependency repositories
@@ -40,7 +40,7 @@ jobs:
     # if: github.ref == 'refs/heads/master'
     steps:
       - name: Checkout repository and submodules
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           submodules: recursive
       - name: Install python toml package
