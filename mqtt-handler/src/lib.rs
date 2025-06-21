@@ -48,8 +48,6 @@ impl MqttHandler {
     }
 }
 
-// async fn on_connect(client: rumqttc::AsyncClient) {}
-
 async fn launch_eventloop(
     data_sender: tokio::sync::mpsc::UnboundedSender<CapturedPayloads>,
     mqtt_options: MqttOptions,
