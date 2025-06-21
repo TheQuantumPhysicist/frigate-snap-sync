@@ -240,7 +240,7 @@ mod tests {
 
     #[test]
     fn test_conversion() {
-        let val = 1234567;
+        let val = 1_234_567;
         let d = duration_from_int(val);
         let val_again = duration_to_int(&d).unwrap();
         assert_eq!(val, val_again);
@@ -248,13 +248,13 @@ mod tests {
 
     #[test]
     fn debug_display() {
-        let t = Time::from_secs_since_epoch(1705064092);
+        let t = Time::from_secs_since_epoch(1_705_064_092);
         let s = format!("{t:?}");
         assert_eq!(s, "2024-01-12T12:54:52Z");
         let s = format!("{t}");
         assert_eq!(s, "2024-01-12 12:54:52 UTC");
 
-        let t = Time::from_duration_since_epoch(Duration::from_millis(1705064092123));
+        let t = Time::from_duration_since_epoch(Duration::from_millis(1_705_064_092_123));
         let s = format!("{t:?}");
         assert_eq!(s, "2024-01-12T12:54:52.123Z");
         let s = format!("{t}");

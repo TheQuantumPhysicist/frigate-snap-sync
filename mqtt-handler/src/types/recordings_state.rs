@@ -56,9 +56,10 @@ mod tests {
 
         let mqtt_topic_prefix = make_random_alphanumeric_string(&mut rng, 20);
 
-        let mut config = MqttHandlerConfig::default();
-
-        config.mqtt_frigate_topic_prefix = mqtt_topic_prefix.clone();
+        let config = MqttHandlerConfig {
+            mqtt_frigate_topic_prefix: mqtt_topic_prefix.clone(),
+            ..Default::default()
+        };
 
         {
             let camera_name = make_random_alphanumeric_string(&mut rng, 20);
@@ -80,7 +81,7 @@ mod tests {
                     }
                 );
             } else {
-                assert!(parse_result.is_none())
+                assert!(parse_result.is_none());
             }
         }
     }

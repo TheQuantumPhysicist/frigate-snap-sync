@@ -33,7 +33,7 @@ impl BlockingSftpImpl {
     ) -> Result<Self, SftpError> {
         let mut session = Session::new().map_err(SftpError::SessionInitError)?;
 
-        let tcp = TcpStream::connect(host).unwrap();
+        let tcp = TcpStream::connect(host).map_err(SftpError::TcpConnectionFailed)?;
         session.set_tcp_stream(tcp);
         session.handshake().map_err(SftpError::HandshakeFailed)?;
 

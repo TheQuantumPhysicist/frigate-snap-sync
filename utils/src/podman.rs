@@ -110,7 +110,9 @@ impl Podman {
                 .collect::<Vec<_>>()
                 .join(" ")
         );
-        let output = command.output().unwrap();
+        let output = command
+            .output()
+            .expect("Podman output extraction on run failed");
         assert!(
             output.status.success(),
             "Failed to run podman command: {}\n{}",
@@ -130,7 +132,9 @@ impl Podman {
         command.arg(&self.name);
         command.arg(format!("{container_port}"));
 
-        let output = command.output().unwrap();
+        let output = command
+            .output()
+            .expect("Port command output extraction failed");
         tracing::info!(
             "Podman ports command args: {:?}",
             command
@@ -145,7 +149,8 @@ impl Podman {
             command,
             String::from_utf8_lossy(&output.stderr)
         );
-        let stdout = String::from_utf8(output.stdout).unwrap();
+        let stdout = String::from_utf8(output.stdout)
+            .expect("Stdout output for port mapping is not a string!");
         let line = stdout.lines().next()?;
         let parts = line.split(':').collect::<Vec<&str>>();
         let port = parts
@@ -161,7 +166,7 @@ impl Podman {
         let mut command = std::process::Command::new("podman");
         command.arg("stop");
         command.arg(&self.name);
-        let output = command.output().unwrap();
+        let output = command.output().expect("Failed to extract logs in stop()");
         tracing::info!(
             "Podman stop command args: {:?}",
             command
@@ -184,7 +189,9 @@ impl Podman {
         let mut command = std::process::Command::new("podman");
         command.arg("logs");
         command.arg(&self.name);
-        let output = command.output().unwrap();
+        let output = command
+            .output()
+            .expect("Failed to extract logs from command in print_logs");
         tracing::info!(
             "Podman logs command args: {:?}",
             command

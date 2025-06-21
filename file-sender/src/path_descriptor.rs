@@ -307,7 +307,7 @@ mod tests {
                 assert!(serialized.contains(&format!("{SFTP_KEY_IDENTITY}=/home/user/key.pem")));
                 let to_parse = serialized.strip_prefix("sftp:").unwrap();
                 parse_key_vals_string(
-                    &to_parse,
+                    to_parse,
                     "sftp",
                     &[
                         SFTP_KEY_USER,
@@ -344,7 +344,7 @@ mod tests {
                 assert!(serialized.contains(&format!("{SFTP_KEY_IDENTITY}=/home/user/key.pem")));
                 let to_parse = serialized.strip_prefix("sftp:").unwrap();
                 parse_key_vals_string(
-                    &to_parse,
+                    to_parse,
                     "sftp",
                     &[
                         SFTP_KEY_USER,

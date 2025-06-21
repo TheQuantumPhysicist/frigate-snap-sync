@@ -110,6 +110,7 @@ async fn basic_upload_in_mocks() {
 }
 
 #[tokio::test]
+#[allow(clippy::too_many_lines)]
 async fn basic_upload_in_virtual_filesystem() {
     let frigate_config = FrigateApiConfig {
         frigate_api_base_url: "http://someurl.com:5000/".to_string(),

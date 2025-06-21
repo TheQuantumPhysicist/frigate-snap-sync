@@ -236,8 +236,8 @@ mod tests {
     #[ignore = "If you want to run this, set the fixture url, set the parameters then run it"]
     async fn recording_clip(base_url: String) {
         let camera_label = "my_camera";
-        let start_timestamp = 1744534711.333822;
-        let end_timestamp = 1744534731.13457;
+        let start_timestamp = 1_744_534_711.333_822;
+        let end_timestamp = 1_744_534_731.134_57;
 
         let config = FrigateApiConfig {
             frigate_api_base_url: base_url,

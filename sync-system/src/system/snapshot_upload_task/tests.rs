@@ -79,7 +79,7 @@ async fn upload_snapshot(random_seed: Seed) {
                     break;
                 }
             }
-            futures::future::ready(()).await
+            futures::future::ready(()).await;
         })
         .await
         .unwrap();
@@ -181,7 +181,7 @@ async fn upload_snapshot_mocked(random_seed: Seed) {
                     break;
                 }
             }
-            futures::future::ready(()).await
+            futures::future::ready(()).await;
         })
         .await
         .unwrap();
@@ -285,7 +285,7 @@ async fn upload_snapshot_mocked_error_mkdir(random_seed: Seed) {
                     break;
                 }
             }
-            futures::future::ready(()).await
+            futures::future::ready(()).await;
         })
         .await
         .unwrap();

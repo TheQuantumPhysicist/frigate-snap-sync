@@ -2,6 +2,7 @@
     "editor.formatOnSave": true,
     "cSpell.words": [
         "buildx",
+        "codecheck",
         "ftyp",
         "LC_CTYPE",
         "libssh",

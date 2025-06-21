@@ -23,8 +23,8 @@ async fn test_store<E: Display + Debug, S: StoreDestination<Error = E> + ?Sized>
     // Test that random files and directory names don't exist
     for _ in 0..10 {
         let name = gen_random_string(rng, 10..=50);
-        assert!(!fs.file_exists(Path::new(&format!("{name}"))).await.unwrap());
-        assert!(!fs.dir_exists(Path::new(&format!("{name}"))).await.unwrap());
+        assert!(!fs.file_exists(Path::new(&name)).await.unwrap());
+        assert!(!fs.dir_exists(Path::new(&name)).await.unwrap());
     }
 
     // Test writing file from memory
@@ -72,7 +72,6 @@ async fn test_store<E: Display + Debug, S: StoreDestination<Error = E> + ?Sized>
     // Test creating a deep dir and that it exists
     {
         let deep_dir = (0..10)
-            .into_iter()
             .map(|_| gen_random_string(rng, 10..20))
             .fold(PathBuf::new(), |so_far, curr| {
                 so_far.join(PathBuf::from(curr))

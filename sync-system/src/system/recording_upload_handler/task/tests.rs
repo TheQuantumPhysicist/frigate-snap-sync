@@ -583,9 +583,8 @@ async fn recording_upload_mocked_failures_then_success(random_seed: Seed) {
     let frigate_api_mock: Arc<dyn FrigateApi> = Arc::new(frigate_api_mock);
     let frigate_api_maker = Arc::new(move |_: &FrigateApiConfig| Ok(frigate_api_mock.clone()));
 
-    let (review_sender, review_receiver) = tokio::sync::mpsc::unbounded_channel();
     // We only send one review here, no need for sender
-    let _review_sender = review_sender;
+    let (_review_sender, review_receiver) = tokio::sync::mpsc::unbounded_channel();
 
     {
         let (first_resolve_sender, first_resolve_receiver) = tokio::sync::oneshot::channel::<()>();
@@ -680,9 +679,8 @@ async fn recording_upload_mocked_failures_return_not_done(random_seed: Seed) {
     let frigate_api_mock: Arc<dyn FrigateApi> = Arc::new(frigate_api_mock);
     let frigate_api_maker = Arc::new(move |_: &FrigateApiConfig| Ok(frigate_api_mock.clone()));
 
-    let (review_sender, review_receiver) = tokio::sync::mpsc::unbounded_channel();
     // We only send one review here, no need for sender
-    let _review_sender = review_sender;
+    let (_review_sender, review_receiver) = tokio::sync::mpsc::unbounded_channel();
 
     {
         let (first_resolve_sender, first_resolve_receiver) = tokio::sync::oneshot::channel::<()>();
@@ -834,9 +832,8 @@ async fn recording_upload_mocked_failures_in_download_then_upload_leads_to_not_d
     let frigate_api_mock: Arc<dyn FrigateApi> = Arc::new(frigate_api_mock);
     let frigate_api_maker = Arc::new(move |_: &FrigateApiConfig| Ok(frigate_api_mock.clone()));
 
-    let (review_sender, review_receiver) = tokio::sync::mpsc::unbounded_channel();
     // We only send one review here, no need for sender
-    let _review_sender = review_sender;
+    let (_review_sender, review_receiver) = tokio::sync::mpsc::unbounded_channel();
 
     {
         let (first_resolve_sender, first_resolve_receiver) = tokio::sync::oneshot::channel::<()>();

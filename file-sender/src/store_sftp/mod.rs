@@ -173,4 +173,6 @@ pub enum SftpError {
     ReadBufferError(std::io::Error),
     #[error("Read remote file error: {0}")]
     ReadRemoteFileError(std::io::Error),
+    #[error("TCP connection failed: {0}")]
+    TcpConnectionFailed(std::io::Error),
 }

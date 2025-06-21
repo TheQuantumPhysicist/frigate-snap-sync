@@ -41,17 +41,18 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn test() {
         {
             let new_sample_data = r#"{"type": "new", "before": {"id": "1745534741.333822-vsz5s4", "camera": "CameraLabel", "start_time": 1745534741.333822, "end_time": null, "severity": "alert", "thumb_path": "/media/frigate/clips/review/thumb-CameraLabel-1745534741.333822-vsz5s4.webp", "data": {"detections": ["1744534706.323662-abcdefg"], "objects": ["person"], "sub_labels": [], "zones": ["full_frame"], "audio": []}}, "after": {"id": "1745534741.333822-vsz5s4", "camera": "CameraLabel", "start_time": 1745534741.333822, "end_time": null, "severity": "alert", "thumb_path": "/media/frigate/clips/review/thumb-CameraLabel-1745534741.333822-vsz5s4.webp", "data": {"detections": ["1744534706.323662-abcdefg"], "objects": ["person"], "sub_labels": [], "zones": ["full_frame"], "audio": []}}}"#;
-            let new_data = serde_json::from_str::<ReviewsPayload>(&new_sample_data).unwrap();
+            let new_data = serde_json::from_str::<ReviewsPayload>(new_sample_data).unwrap();
             assert_eq!(new_data.type_field, TypeField::New);
             assert_eq!(new_data.after.camera, "CameraLabel");
             assert_eq!(new_data.before.camera, "CameraLabel");
             assert_eq!(new_data.before.id, "1745534741.333822-vsz5s4");
             assert_eq!(new_data.after.id, "1745534741.333822-vsz5s4");
-            assert_eq!(new_data.before.start_time, 1745534741.333822);
-            assert_eq!(new_data.after.start_time, 1745534741.333822);
+            assert!((new_data.before.start_time - 1_745_534_741.333_822).abs() < 0.001);
+            assert!((new_data.after.start_time - 1_745_534_741.333_822).abs() < 0.001);
             assert_eq!(new_data.before.end_time, None);
             assert_eq!(new_data.after.end_time, None);
             assert_eq!(new_data.before.severity, "alert");
@@ -80,7 +81,7 @@ mod tests {
 
         {
             let update_sample_data = r#"{"type": "update", "before": {"id": "1745534741.333822-vsz5s4", "camera": "CameraLabel", "start_time": 1745534741.333822, "end_time": null, "severity": "alert", "thumb_path": "/media/frigate/clips/review/thumb-CameraLabel-1745534741.333822-vsz5s4.webp", "data": {"detections": ["1744534706.323662-abcdefg"], "objects": ["person"], "sub_labels": [], "zones": ["full_frame"], "audio": []}}, "after": {"id": "1745534741.333822-vsz5s4", "camera": "CameraLabel", "start_time": 1745534741.333822, "end_time": null, "severity": "alert", "thumb_path": "/media/frigate/clips/review/thumb-CameraLabel-1745534741.333822-vsz5s4.webp", "data": {"detections": ["1744534706.323662-abcdefg"], "objects": ["person"], "sub_labels": [], "zones": ["full_frame"], "audio": []}}}"#;
-            let update_data = serde_json::from_str::<ReviewsPayload>(&update_sample_data).unwrap();
+            let update_data = serde_json::from_str::<ReviewsPayload>(update_sample_data).unwrap();
             assert_eq!(update_data.type_field, TypeField::Update);
             assert_eq!(update_data.before.camera, "CameraLabel");
             assert_eq!(update_data.after.camera, "CameraLabel");
@@ -118,14 +119,14 @@ mod tests {
 
         {
             let end_sample_data = r#"{"type": "end", "before": {"id": "1745534741.333822-vsz5s4", "camera": "CameraLabel", "start_time": 1745534741.333822, "end_time": null, "severity": "alert", "thumb_path": "/media/frigate/clips/review/thumb-CameraLabel-1745534741.333822-vsz5s4.webp", "data": {"detections": ["1744534706.323662-abcdefg"], "objects": ["person"], "sub_labels": [], "zones": ["full_frame"], "audio": []}}, "after": {"id": "1745534741.333822-vsz5s4", "camera": "CameraLabel", "start_time": 1745534741.333822, "end_time": 1756534721.13457, "severity": "alert", "thumb_path": "/media/frigate/clips/review/thumb-CameraLabel-1745534741.333822-vsz5s4.webp", "data": {"detections": ["1744534706.323662-abcdefg"], "objects": ["person"], "sub_labels": [], "zones": ["full_frame"], "audio": []}}}"#;
-            let end_data = serde_json::from_str::<ReviewsPayload>(&end_sample_data).unwrap();
+            let end_data = serde_json::from_str::<ReviewsPayload>(end_sample_data).unwrap();
             assert_eq!(end_data.type_field, TypeField::End);
             assert_eq!(end_data.after.camera, "CameraLabel");
             assert_eq!(end_data.before.camera, "CameraLabel");
             assert_eq!(end_data.before.id, "1745534741.333822-vsz5s4");
             assert_eq!(end_data.after.id, "1745534741.333822-vsz5s4");
             assert_eq!(end_data.before.end_time, None);
-            assert_eq!(end_data.after.end_time, Some(1756534721.13457));
+            assert_eq!(end_data.after.end_time, Some(1_756_534_721.134_57));
             assert_eq!(end_data.before.severity, "alert");
             assert_eq!(end_data.after.severity, "alert");
             assert_eq!(
