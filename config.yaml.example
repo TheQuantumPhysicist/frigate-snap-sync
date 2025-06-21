@@ -9,6 +9,7 @@ mqtt_keep_alive_seconds: 5
 mqtt_username:
 mqtt_password:
 # When connecting to mqtt broker, this is the string that is used to self-identify
+# Ensure that EVERY client connecting has a unique id. Otherwise, this can lead to confusion in connection ownership.
 mqtt_client_id: sam-frigate-video-sync
 
 # Currently you can use local destinations and sftp destinations

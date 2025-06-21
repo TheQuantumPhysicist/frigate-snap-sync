@@ -48,25 +48,25 @@ impl MqttHandler {
     }
 }
 
+// async fn on_connect(client: rumqttc::AsyncClient) {}
+
 async fn launch_eventloop(
     data_sender: tokio::sync::mpsc::UnboundedSender<CapturedPayloads>,
     mqtt_options: MqttOptions,
     config: MqttHandlerConfig,
     mut stop_receiver: oneshot::Receiver<()>,
 ) {
+    const MQTT_ASYNC_CAP: usize = 1000;
+
     tracing::info!(
-        "Connecting to mqtt server: {}:{}",
+        "Mqtt client targeting server: {}:{}",
         mqtt_options.broker_address().0,
         mqtt_options.broker_address().1,
     );
 
-    let (client, mut eventloop) = AsyncClient::new(mqtt_options, 100);
+    let (client, mut eventloop) = AsyncClient::new(mqtt_options, MQTT_ASYNC_CAP);
 
     let topic = format!("{}/#", config.mqtt_frigate_topic_prefix);
-
-    tracing::info!("Subscribing to topic: {topic}");
-
-    client.subscribe(topic, QoS::ExactlyOnce).await.unwrap();
 
     loop {
         match stop_receiver.try_recv() {
@@ -86,25 +86,57 @@ async fn launch_eventloop(
                             &publish.topic,
                             &publish.payload,
                         ) {
-                            tracing::debug!("Found relevant data from topic: {}", publish.topic);
+                            tracing::debug!("Found relevant data from topic: `{}`", publish.topic);
                             data_sender.send(data).expect("Sending data message failed");
                         } else {
-                            tracing::trace!("Ignoring data with topic: {}", publish.topic);
+                            tracing::debug!("Ignoring data with topic: `{}`", publish.topic);
                         }
                     }
+
+                    // On connection, an acknowledgement is sent to the client (us here).
+                    Packet::ConnAck(conn_ack) => {
+                        // When conn_ack.session_present is `false`, we need to resubscribe.
+                        //
+                        // From the docs:
+                        //
+                        // > Session Present (Bit 0): Used to indicate whether the server is using an existing session to resume
+                        // > communication with the client.
+                        // > Session Present may be 1 only when the client has set Clean Start to 0 in the CONNECT connection.
+                        //
+                        // Source: https://emqx.medium.com/mqtt-5-0-packet-explained-01-connect-connack-f941e5c0c61b
+                        if !conn_ack.session_present {
+                            tracing::info!(
+                                "On connection acknowledgement, session is not present in mqtt. (Re)subscribing to topic: `{topic}`"
+                            );
+
+                            match client.subscribe(topic.clone(), QoS::ExactlyOnce).await {
+                                Ok(()) => {
+                                    tracing::info!("Subscription request of `{topic}` is sent");
+                                }
+                                Err(e) => {
+                                    tracing::info!(
+                                        "Subscription to topic `{topic}` sending failed: `{e}`"
+                                    );
+                                }
+                            }
+                        }
+                    }
+
+                    Packet::SubAck(_sub_ack) => {
+                        tracing::info!("Mqtt server acknowledged: Topic subscription successful!");
+                    }
+
                     Packet::Connect(_)
-                    | Packet::ConnAck(_)
+                    | Packet::Disconnect
                     | Packet::PubAck(_)
                     | Packet::PubRec(_)
                     | Packet::PubRel(_)
                     | Packet::PubComp(_)
                     | Packet::Subscribe(_)
-                    | Packet::SubAck(_)
                     | Packet::Unsubscribe(_)
                     | Packet::UnsubAck(_)
                     | Packet::PingReq
-                    | Packet::PingResp
-                    | Packet::Disconnect => (),
+                    | Packet::PingResp => (),
                 }
             }
         } else {
