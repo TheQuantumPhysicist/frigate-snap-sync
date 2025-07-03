@@ -28,7 +28,6 @@ RUN echo "export /home/runner/.cargo/bin:$PATH" > /home/runner/.bashrc
 RUN git clone https://github.com/TheQuantumPhysicist/frigate-snap-sync
 RUN cd /home/runner/frigate-snap-sync/
 WORKDIR /home/runner/frigate-snap-sync/
-RUN cargo update
 RUN (cargo update && cargo build --release --all) || (git checkout Cargo.lock && cargo build --release --all --locked)
 
 USER root
