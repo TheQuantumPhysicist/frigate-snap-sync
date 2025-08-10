@@ -1,27 +1,55 @@
-pub fn assert_str_starts_with(s: &str, to_start_with: &str) {
-    assert!(
-        s.starts_with(to_start_with),
-        "String does not start with expected value. \nString: `{s}`\nDoes not end with: `{to_start_with}`"
-    );
+#[macro_export]
+macro_rules! assert_str_starts_with {
+    ($s:expr, $prefix:expr $(,)?) => {
+        assert!(
+            $s.starts_with($prefix),
+            "assert_str_starts_with failed at {}:{}\nString: `{}`\nExpected prefix: `{}`",
+            file!(),
+            line!(),
+            $s,
+            $prefix
+        );
+    };
 }
 
-pub fn assert_str_ends_with(s: &str, to_end_with: &str) {
-    assert!(
-        s.ends_with(to_end_with),
-        "String does not end with expected value. \nString: `{s}`\nDoes not end with: `{to_end_with}`"
-    );
+#[macro_export]
+macro_rules! assert_str_ends_with {
+    ($s:expr, $suffix:expr $(,)?) => {
+        assert!(
+            $s.ends_with($suffix),
+            "assert_str_ends_with failed at {}:{}\nString: `{}`\nExpected suffix: `{}`",
+            file!(),
+            line!(),
+            $s,
+            $suffix
+        );
+    };
 }
 
-pub fn assert_str_contains(s: &str, to_contain: &str) {
-    assert!(
-        s.contains(to_contain),
-        "String does not contain expected value. \nString: `{s}`\nDoes not contain: `{to_contain}`"
-    );
+#[macro_export]
+macro_rules! assert_str_contains {
+    ($s:expr, $needle:expr $(,)?) => {
+        assert!(
+            $s.contains($needle),
+            "assert_str_contains failed at {}:{}\nString: `{}`\nExpected to contain: `{}`",
+            file!(),
+            line!(),
+            $s,
+            $needle
+        );
+    };
 }
 
-pub fn assert_slice_contains<T: Eq + std::fmt::Debug>(v: &[T], to_contain: &T) {
-    assert!(
-        v.contains(to_contain),
-        "String does not contain expected value. \nString: `{v:?}`\nDoes not contain: `{to_contain:?}`"
-    );
+#[macro_export]
+macro_rules! assert_slice_contains {
+    ($slice:expr, $item:expr $(,)?) => {
+        assert!(
+            $slice.contains($item),
+            "assert_slice_contains failed at {}:{}\nSlice: `{:?}`\nExpected to contain: `{:?}`",
+            file!(),
+            line!(),
+            $slice,
+            $item
+        );
+    };
 }

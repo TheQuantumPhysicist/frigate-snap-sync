@@ -13,10 +13,10 @@ use std::{
     path::{Path, PathBuf},
     sync::{Arc, atomic::AtomicU64},
 };
-use test_utils::{asserts::assert_slice_contains, random::Rng};
+use test_utils::{assert_slice_contains, random::Rng};
 use test_utils::{
-    asserts::{assert_str_contains, assert_str_starts_with},
     random::{Seed, gen_random_bytes, gen_random_string, make_seedable_rng, random_seed},
+    {assert_str_contains, assert_str_starts_with},
 };
 use tokio::sync::{mpsc::UnboundedSender, oneshot};
 
@@ -257,8 +257,8 @@ async fn basic_syncsystem_uploads(
             // Expect one file
             let files = file_sender.ls(&dirs[0]).await.unwrap();
             assert_eq!(files.len(), 1);
-            assert_str_starts_with(&files[0].display().to_string(), "Snapshot");
-            assert_str_contains(&files[0].display().to_string(), camera1_label);
+            assert_str_starts_with!(&files[0].display().to_string(), "Snapshot");
+            assert_str_contains!(&files[0].display().to_string(), camera1_label);
         }
     }
 
@@ -340,12 +340,12 @@ async fn basic_syncsystem_uploads(
             // Upload directory - we expect directory from 01-01-1970 due to a very early timestamp
             let dirs_in = file_sender.ls(Path::new(".")).await.unwrap();
             let expected_dir = PathBuf::from("1970-01-01");
-            assert_slice_contains(&dirs_in, &expected_dir);
+            assert_slice_contains!(&dirs_in, &expected_dir);
             // Expect one file
             let files = file_sender.ls(&expected_dir).await.unwrap();
             assert_eq!(files.len(), 1);
-            assert_str_starts_with(&files[0].display().to_string(), "RecordingClip");
-            assert_str_contains(&files[0].display().to_string(), camera1_label);
+            assert_str_starts_with!(&files[0].display().to_string(), "RecordingClip");
+            assert_str_contains!(&files[0].display().to_string(), camera1_label);
         }
     }
 
@@ -617,8 +617,8 @@ async fn basic_syncsystem_uploads_with_delay_test(
             // Expect one file
             let files = file_sender.ls(&dirs[0]).await.unwrap();
             assert_eq!(files.len(), 1);
-            assert_str_starts_with(&files[0].display().to_string(), "Snapshot");
-            assert_str_contains(&files[0].display().to_string(), camera1_label);
+            assert_str_starts_with!(&files[0].display().to_string(), "Snapshot");
+            assert_str_contains!(&files[0].display().to_string(), camera1_label);
         }
     }
 
@@ -658,12 +658,12 @@ async fn basic_syncsystem_uploads_with_delay_test(
             // Upload directory - we expect directory from 01-01-1970 due to a very early timestamp
             let dirs_in = file_sender.ls(Path::new(".")).await.unwrap();
             let expected_dir = PathBuf::from("1970-01-01");
-            assert_slice_contains(&dirs_in, &expected_dir);
+            assert_slice_contains!(&dirs_in, &expected_dir);
             // Expect one file
             let files = file_sender.ls(&expected_dir).await.unwrap();
             assert_eq!(files.len(), 1);
-            assert_str_starts_with(&files[0].display().to_string(), "RecordingClip");
-            assert_str_contains(&files[0].display().to_string(), camera1_label);
+            assert_str_starts_with!(&files[0].display().to_string(), "RecordingClip");
+            assert_str_contains!(&files[0].display().to_string(), camera1_label);
         }
     }
 

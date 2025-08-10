@@ -12,7 +12,7 @@ use std::{
     sync::Mutex,
 };
 use test_utils::{
-    asserts::assert_str_ends_with,
+    assert_str_ends_with,
     random::{Rng, Seed, gen_random_bytes, make_seedable_rng, random_seed},
 };
 use utils::time::Time;
@@ -132,7 +132,7 @@ async fn recording_upload(random_seed: Seed) {
 
         let files = file_sender.ls(&expected_dir).await.unwrap();
         let file_name_0 = files[0].to_str().unwrap();
-        assert_str_ends_with(file_name_0, "-0.mp4");
+        assert_str_ends_with!(file_name_0, "-0.mp4");
 
         assert_eq!(
             file_sender
@@ -174,7 +174,7 @@ async fn recording_upload(random_seed: Seed) {
 
             let files = file_sender.ls(&expected_dir).await.unwrap();
             let file_name_1 = files[0].to_str().unwrap();
-            assert_str_ends_with(file_name_1, "-1.mp4");
+            assert_str_ends_with!(file_name_1, "-1.mp4");
 
             assert_eq!(
                 file_sender
@@ -216,7 +216,7 @@ async fn recording_upload(random_seed: Seed) {
 
             let files = file_sender.ls(&expected_dir).await.unwrap();
             let file_name_0 = files[0].to_str().unwrap();
-            assert_str_ends_with(file_name_0, "-0.mp4");
+            assert_str_ends_with!(file_name_0, "-0.mp4");
 
             assert_eq!(
                 file_sender
@@ -258,7 +258,7 @@ async fn recording_upload(random_seed: Seed) {
 
             let files = file_sender.ls(&expected_dir).await.unwrap();
             let file_name_0 = files[0].to_str().unwrap();
-            assert_str_ends_with(file_name_0, "-1.mp4");
+            assert_str_ends_with!(file_name_0, "-1.mp4");
 
             assert_eq!(
                 file_sender

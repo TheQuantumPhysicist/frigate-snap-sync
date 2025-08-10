@@ -6,7 +6,7 @@ use mocks::store_dest::make_store_mock;
 use rstest::rstest;
 use std::path::Path;
 use test_utils::{
-    asserts::assert_str_contains,
+    assert_str_contains,
     random::{Seed, gen_random_bytes, make_seedable_rng, random_seed},
 };
 
@@ -89,11 +89,11 @@ async fn upload_snapshot(random_seed: Seed) {
 
         let dir_name = &file_sender.ls(Path::new(".")).await.unwrap()[0];
 
-        assert_str_contains(
+        assert_str_contains!(
             file_sender.ls(dir_name).await.unwrap()[0].to_str().unwrap(),
             &snapshot.camera_label,
         );
-        assert_str_contains(
+        assert_str_contains!(
             file_sender.ls(dir_name).await.unwrap()[0].to_str().unwrap(),
             &snapshot.object_name,
         );

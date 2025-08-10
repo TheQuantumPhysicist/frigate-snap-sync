@@ -214,7 +214,7 @@ fn parse_key_vals_string(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_utils::asserts::assert_str_contains;
+    use test_utils::assert_str_contains;
 
     #[test]
     fn path_descriptor_parser() {
@@ -383,7 +383,7 @@ mod tests {
         let required_keys = ["name"];
         let optional_keys = ["age"];
 
-        assert_str_contains(
+        assert_str_contains!(
             &parse_key_vals_string(input, "test", &required_keys, &optional_keys)
                 .unwrap_err()
                 .to_string(),
@@ -397,7 +397,7 @@ mod tests {
         let required_keys = [];
         let optional_keys = [];
 
-        assert_str_contains(
+        assert_str_contains!(
             &parse_key_vals_string(input, "test", &required_keys as &[&str], &optional_keys)
                 .unwrap_err()
                 .to_string(),
@@ -411,7 +411,7 @@ mod tests {
         let required_keys = ["name"];
         let optional_keys = [];
 
-        assert_str_contains(
+        assert_str_contains!(
             &parse_key_vals_string(input, "test", &required_keys as &[&str], &optional_keys)
                 .unwrap_err()
                 .to_string(),
@@ -425,7 +425,7 @@ mod tests {
         let required_keys = ["number"];
         let optional_keys = ["näm"];
 
-        assert_str_contains(
+        assert_str_contains!(
             &parse_key_vals_string(input, "test", &required_keys as &[&str], &optional_keys)
                 .unwrap_err()
                 .to_string(),
@@ -439,7 +439,7 @@ mod tests {
         let required_keys = [];
         let optional_keys = [];
 
-        assert_str_contains(
+        assert_str_contains!(
             &parse_key_vals_string(input, "test", &required_keys, &optional_keys)
                 .unwrap_err()
                 .to_string(),
