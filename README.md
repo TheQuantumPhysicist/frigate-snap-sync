@@ -98,6 +98,30 @@ The authors and contributors do not assume any responsibility for any usage of t
 
 I wrote this program to solve a problem I had. You're welcome to contribute. But please make sure to maintain the same code quality you'll see in the code. I like the saying "test everything like hell", and I try to follow this mantra as much as I can.
 
+## Test suite
+
+Tests are very deep in this software. To run all test suite, you can simply run
+
+```
+cargo test --all
+```
+
+There are also tests that launch a bunch of stateless podman containers to run tests of sftp (and perhaps more filesystems in the future). To enable that, define the env var `SNAPSYNC_CONTAINERIZED_TESTS`, e.g., like this
+
+```
+export SNAPSYNC_CONTAINERIZED_TESTS=1
+```
+
+If you have podman installed, make sure it is working before enabling this. For example, on MacOS, run the command
+
+```
+podman machine start
+```
+
+to start the VM, in which the containers run. Failure to do this will just fail the tests.
+
+See Github CI yaml files for a working example of this.
+
 ## License
 
 This program is licensed under the [GPLv3 license](/LICENSE).
