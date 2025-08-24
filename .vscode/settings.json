@@ -1,11 +1,14 @@
 {
     "editor.formatOnSave": true,
     "cSpell.words": [
+        "Bitnami",
         "buildx",
         "codecheck",
+        "creds",
         "ftyp",
         "LC_CTYPE",
         "libssh",
+        "localstack",
         "lscr",
         "mosquitto",
         "mqtt",
@@ -25,4 +28,8 @@
         "RUST_LOG": "info",
         "SNAPSYNC_CONTAINERIZED_TESTS": "1",
     },
+    "lldb.launch.env": {
+        "RUST_LOG": "info",
+        "SNAPSYNC_CONTAINERIZED_TESTS": "1",
+    }
 }

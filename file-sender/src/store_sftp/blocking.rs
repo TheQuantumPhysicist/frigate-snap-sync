@@ -1,5 +1,5 @@
 use crate::{
-    path_descriptor::{IdentitySource, PathDescriptor},
+    path_descriptor::{PathDescriptor, StringFileData},
     traits::StoreDestination,
 };
 use async_trait::async_trait;
@@ -28,7 +28,7 @@ impl BlockingSftpImpl {
         path_descriptor: Arc<PathDescriptor>,
         host: &str,
         username: &str,
-        priv_key: IdentitySource,
+        priv_key: StringFileData,
         base_remote_path: impl Into<PathBuf>,
     ) -> Result<Self, SftpError> {
         let mut session = Session::new().map_err(SftpError::SessionInitError)?;
@@ -37,7 +37,7 @@ impl BlockingSftpImpl {
         session.set_tcp_stream(tcp);
         session.handshake().map_err(SftpError::HandshakeFailed)?;
 
-        let priv_key = priv_key.into_key()?;
+        let priv_key = priv_key.into_file_data()?;
 
         session
             .userauth_pubkey_memory(username, None, &priv_key, None)

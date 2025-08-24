@@ -1,7 +1,7 @@
 mod blocking;
 
 use crate::{
-    path_descriptor::{IdentitySource, PathDescriptor},
+    path_descriptor::{PathDescriptor, StringFileData},
     traits::StoreDestination,
 };
 use blocking::BlockingSftpImpl;
@@ -20,7 +20,7 @@ impl AsyncSftpImpl {
         path_descriptor: Arc<PathDescriptor>,
         host: &str,
         username: &str,
-        priv_key: IdentitySource,
+        priv_key: StringFileData,
         base_remote_path: impl Into<PathBuf>,
     ) -> Result<Self, SftpError> {
         let sftp = BlockingSftpImpl::new_with_public_key(
@@ -141,10 +141,10 @@ pub enum SftpError {
     SessionInitError(ssh2::Error),
     #[error("Handshake failed: {0}")]
     HandshakeFailed(ssh2::Error),
-    #[error("Public key isn't readable in path. Error: {0}")]
-    PrivKeyNotFoundInPath(PathBuf),
-    #[error("Private key isn't readable in path. Error: {0}")]
-    PrivKeyReadError(std::io::Error),
+    #[error("File not found/readable in path. Error: {0}")]
+    FileNotFound(PathBuf),
+    #[error("File isn't readable/found in path. Error: {0}")]
+    FileReadError(std::io::Error),
     #[error("Public key auth failed: {0}")]
     PubKeyAuthError(ssh2::Error),
     #[error("Opening sftp channel: {0}")]
