@@ -240,24 +240,24 @@ impl StoreDestination for AsyncS3Impl {
 
         // Files directly under the prefix
         for o in resp.contents() {
-            if let Some(k) = o.key() {
-                if let Some(leaf) = k.strip_prefix(&prefix) {
-                    if !leaf.is_empty() && !leaf.contains('/') {
-                        out.push(PathBuf::from(leaf));
-                    }
-                }
+            if let Some(k) = o.key()
+                && let Some(leaf) = k.strip_prefix(&prefix)
+                && !leaf.is_empty()
+                && !leaf.contains('/')
+            {
+                out.push(PathBuf::from(leaf));
             }
         }
 
         // Immediate subdirectories
         for p in resp.common_prefixes() {
-            if let Some(k) = p.prefix() {
-                if let Some(mut leaf) = k.strip_prefix(&prefix) {
-                    // prefixes returned by S3 end with '/', remove it
-                    leaf = leaf.strip_suffix('/').unwrap_or(leaf);
-                    if !leaf.is_empty() {
-                        out.push(PathBuf::from(leaf));
-                    }
+            if let Some(k) = p.prefix()
+                && let Some(mut leaf) = k.strip_prefix(&prefix)
+            {
+                // prefixes returned by S3 end with '/', remove it
+                leaf = leaf.strip_suffix('/').unwrap_or(leaf);
+                if !leaf.is_empty() {
+                    out.push(PathBuf::from(leaf));
                 }
             }
         }
