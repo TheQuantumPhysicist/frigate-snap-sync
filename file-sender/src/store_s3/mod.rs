@@ -292,8 +292,7 @@ impl StoreDestination for AsyncS3Impl {
             .await
             .with_context(|| format!("open local file {}", from.display()))?;
         let mut buf = Vec::new();
-        use tokio::io::AsyncReadExt;
-        f.read_to_end(&mut buf).await?;
+        tokio::io::AsyncReadExt::read_to_end(&mut f, &mut buf).await?;
         c.put_object()
             .bucket(&self.bucket)
             .key(self.key(to))
