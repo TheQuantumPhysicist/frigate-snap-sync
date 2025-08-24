@@ -256,7 +256,7 @@ async fn basic_syncsystem_uploads(
             assert_eq!(dirs.len(), 1);
             // Expect one file
             let files = file_sender.ls(&dirs[0]).await.unwrap();
-            assert_eq!(files.len(), 1);
+            assert_eq!(files.len(), 1, "Instead of 1 file, found files: {files:?}");
             assert_str_starts_with!(&files[0].display().to_string(), "Snapshot");
             assert_str_contains!(&files[0].display().to_string(), camera1_label);
         }
@@ -343,7 +343,7 @@ async fn basic_syncsystem_uploads(
             assert_slice_contains!(&dirs_in, &expected_dir);
             // Expect one file
             let files = file_sender.ls(&expected_dir).await.unwrap();
-            assert_eq!(files.len(), 1);
+            assert_eq!(files.len(), 1, "Instead of 1 file, found files: {files:?}");
             assert_str_starts_with!(&files[0].display().to_string(), "RecordingClip");
             assert_str_contains!(&files[0].display().to_string(), camera1_label);
         }
@@ -616,7 +616,7 @@ async fn basic_syncsystem_uploads_with_delay_test(
             assert_eq!(dirs.len(), 1);
             // Expect one file
             let files = file_sender.ls(&dirs[0]).await.unwrap();
-            assert_eq!(files.len(), 1);
+            assert_eq!(files.len(), 1, "Instead of 1 file, found files: {files:?}");
             assert_str_starts_with!(&files[0].display().to_string(), "Snapshot");
             assert_str_contains!(&files[0].display().to_string(), camera1_label);
         }
@@ -661,7 +661,7 @@ async fn basic_syncsystem_uploads_with_delay_test(
             assert_slice_contains!(&dirs_in, &expected_dir);
             // Expect one file
             let files = file_sender.ls(&expected_dir).await.unwrap();
-            assert_eq!(files.len(), 1);
+            assert_eq!(files.len(), 1, "Instead of 1 file, found files: {files:?}");
             assert_str_starts_with!(&files[0].display().to_string(), "RecordingClip");
             assert_str_contains!(&files[0].display().to_string(), camera1_label);
         }
