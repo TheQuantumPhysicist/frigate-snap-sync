@@ -207,6 +207,7 @@ impl Podman {
             String::from_utf8_lossy(&output.stderr)
         );
 
+        #[allow(clippy::format_push_string)]
         {
             let mut logs = String::new();
             logs.push_str("==================================================================\n");

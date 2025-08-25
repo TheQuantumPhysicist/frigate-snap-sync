@@ -38,7 +38,10 @@ async fn test_store<E: Display + Debug, S: StoreDestination<Error = E> + ?Sized>
         assert_eq!(bytes_read, bytes);
 
         assert!(fs.file_exists(&file_name).await.unwrap());
-        assert_eq!(fs.ls(Path::new(".")).await.unwrap(), [file_name.clone()]);
+        assert_eq!(
+            fs.ls(Path::new(".")).await.unwrap(),
+            std::slice::from_ref(&file_name)
+        );
         fs.del_file(&file_name).await.unwrap();
         assert!(!fs.file_exists(&file_name).await.unwrap());
         assert_eq!(fs.ls(Path::new(".")).await.unwrap(), Vec::<PathBuf>::new());
@@ -56,13 +59,13 @@ async fn test_store<E: Display + Debug, S: StoreDestination<Error = E> + ?Sized>
         fs.put(&local_path, &file_name_remote).await.unwrap();
         assert_eq!(
             fs.ls(Path::new(".")).await.unwrap(),
-            [file_name_remote.clone()]
+            std::slice::from_ref(&file_name_remote)
         );
 
         assert!(fs.file_exists(&file_name_remote).await.unwrap());
         assert_eq!(
             fs.ls(Path::new(".")).await.unwrap(),
-            [file_name_remote.clone()]
+            std::slice::from_ref(&file_name_remote)
         );
         fs.del_file(&file_name_remote).await.unwrap();
         assert!(!fs.file_exists(&file_name_remote).await.unwrap());

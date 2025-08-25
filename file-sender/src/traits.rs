@@ -41,6 +41,6 @@ pub trait StoreDestination: Send + Sync {
     /// Returns true if the given path is a file, and exists
     async fn file_exists(&self, path: &Path) -> Result<bool, Self::Error>;
 
-    /// Returns a local copy of the PathDescriptor object. This is done primarily to simplify some processes.
+    /// Returns a local copy of the `PathDescriptor` object. This is done primarily to simplify some processes.
     fn path_descriptor(&self) -> &Arc<PathDescriptor>;
 }

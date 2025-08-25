@@ -117,12 +117,12 @@ where
             let task = SnapshotUploadTask::new(snapshot, file_sender_maker, path_descriptors);
             task.run().await;
 
-            if let Some(sender) = confirm_sender {
-                if sender.send(()).is_err() {
-                    tracing::error!(
-                        "CRITICAL: Oneshot confirmation sender for a task in {STRUCT_NAME} failed to send. This indicates a race condition."
-                    );
-                }
+            if let Some(sender) = confirm_sender
+                && sender.send(()).is_err()
+            {
+                tracing::error!(
+                    "CRITICAL: Oneshot confirmation sender for a task in {STRUCT_NAME} failed to send. This indicates a race condition."
+                );
             }
         });
         self.running_tasks.push(handle);

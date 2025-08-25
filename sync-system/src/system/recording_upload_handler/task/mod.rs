@@ -129,18 +129,15 @@ where
 
                     final_result = self.on_received_review(review).await;
 
-                    if let Some(sender) = result_sender {
-                        if sender.send(()).is_err() {
-                            tracing::error!("CRITICAL: Signal that confirms the result of uploading a recording is dead.
-                                This can indicate a race and bad programming. Should never happen.");
-                        }
+                    if let Some(sender) = result_sender && sender.send(()).is_err() {
+                        tracing::error!("CRITICAL: Signal that confirms the result of uploading a recording is dead.
+                            This can indicate a race and bad programming. Should never happen.");
                     }
 
                     match final_result {
                         UploadConclusion::Done => break,
                         UploadConclusion::NotDone => self.increment_retry_attempts(),
-                    };
-
+                    }
                 }
 
                 () = tokio::time::sleep_until(retry_instant) => {
@@ -167,12 +164,12 @@ where
             }
         }
 
-        if let Some(sender) = self.end_review_resolved_sender {
-            if sender.send(final_result).is_err() {
-                tracing::error!(
-                    "CRITICAL: Sender that indicates that a single recording upload task is done failed to indicate that the event loop is done. This indicates a race."
-                );
-            }
+        if let Some(sender) = self.end_review_resolved_sender
+            && sender.send(final_result).is_err()
+        {
+            tracing::error!(
+                "CRITICAL: Sender that indicates that a single recording upload task is done failed to indicate that the event loop is done. This indicates a race."
+            );
         }
 
         id
