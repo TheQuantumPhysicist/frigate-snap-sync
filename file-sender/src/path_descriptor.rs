@@ -16,22 +16,30 @@ const SFTP_KEY_IDENTITY: &str = "identity";
 
 const LOCAL_KEY_PATH: &str = "path";
 
+const S3_PREFIX: &str = "s3";
+const S3_KEY_BUCKET: &str = "bucket";
+const S3_KEY_PATH: &str = "s3-path";
+const S3_KEY_REGION: &str = "region"; // optional
+const S3_KEY_ENDPOINT: &str = "endpoint"; // optional (for LocalStack)
+const S3_KEY_CREDENTIALS_PATH: &str = "credentials-path";
+const S3_KEY_CREDENTIALS_PROFILE: &str = "profile"; // profile in the credentials-file
+
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum IdentitySource {
+pub enum StringFileData {
     InMemory(String),
     OnDisk(std::path::PathBuf),
 }
 
-impl IdentitySource {
+impl StringFileData {
     #[must_use]
     pub fn display(&self) -> impl std::fmt::Display + '_ {
-        struct DisplayWrapper<'a>(&'a IdentitySource);
+        struct DisplayWrapper<'a>(&'a StringFileData);
 
         impl std::fmt::Display for DisplayWrapper<'_> {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 match self.0 {
-                    IdentitySource::InMemory(_) => write!(f, "<in-memory>"),
-                    IdentitySource::OnDisk(path) => write!(f, "{}", path.display()),
+                    StringFileData::InMemory(_) => write!(f, "<in-memory>"),
+                    StringFileData::OnDisk(path) => write!(f, "{}", path.display()),
                 }
             }
         }
@@ -48,16 +56,16 @@ impl IdentitySource {
         Self::InMemory(d)
     }
 
-    pub fn into_key(self) -> Result<String, SftpError> {
+    /// Reads the data in the file into a string
+    pub fn into_file_data(self) -> Result<String, SftpError> {
         match self {
-            IdentitySource::InMemory(data) => Ok(data),
-            IdentitySource::OnDisk(path_buf) => {
+            StringFileData::InMemory(data) => Ok(data),
+            StringFileData::OnDisk(path_buf) => {
                 if !path_buf.exists() {
-                    return Err(SftpError::PrivKeyNotFoundInPath(path_buf.clone()));
+                    return Err(SftpError::FileNotFound(path_buf.clone()));
                 }
 
-                let result =
-                    std::fs::read_to_string(path_buf).map_err(SftpError::PrivKeyReadError)?;
+                let result = std::fs::read_to_string(path_buf).map_err(SftpError::FileReadError)?;
                 Ok(result)
             }
         }
@@ -72,7 +80,15 @@ pub enum PathDescriptor {
         username: String,
         remote_address: String,
         remote_path: String,
-        identity: IdentitySource,
+        identity: StringFileData,
+    },
+    S3 {
+        bucket: String,
+        base_path: PathBuf, // normalized no leading '/', may end with '/'
+        region: Option<String>,
+        endpoint: Option<String>,
+        credentials_path: StringFileData,
+        credentials_profile: Option<String>, // default is [default] according AWS docs
     },
 }
 
@@ -89,6 +105,34 @@ impl Display for PathDescriptor {
                 format!(
                     "{SFTP_PREFIX}:{SFTP_KEY_USER}={username};{SFTP_KEY_HOST}={remote_address};{SFTP_KEY_PATH}={remote_path};{SFTP_KEY_IDENTITY}={}",
                     identity.display()
+                )
+            }
+            PathDescriptor::S3 {
+                bucket,
+                base_path,
+                region,
+                endpoint,
+                credentials_path,
+                credentials_profile,
+            } => {
+                let bucket = bucket.clone();
+                let base_path = base_path.display().to_string();
+                let region = region
+                    .as_ref()
+                    .map(|r| format!(";{S3_KEY_REGION}={r}"))
+                    .unwrap_or_default();
+                let endpoint = endpoint
+                    .as_ref()
+                    .map(|ep| format!(";{S3_KEY_ENDPOINT}={ep}"))
+                    .unwrap_or_default();
+                let credentials_path = credentials_path.display().to_string();
+                let profile = credentials_profile
+                    .as_ref()
+                    .map(|p| format!(";{S3_KEY_CREDENTIALS_PROFILE}={p}"))
+                    .unwrap_or_default();
+
+                format!(
+                    "{S3_PREFIX}:{S3_KEY_BUCKET}={bucket};{S3_KEY_PATH}={base_path}{region}{endpoint};{S3_KEY_CREDENTIALS_PATH}={credentials_path}{profile}",
                 )
             }
         };
@@ -147,7 +191,49 @@ impl FromStr for PathDescriptor {
                     username: username.to_string(),
                     remote_address: host.to_string(),
                     remote_path: remote_path.to_string(),
-                    identity: IdentitySource::OnDisk(identity.into()),
+                    identity: StringFileData::OnDisk(identity.into()),
+                })
+            }
+
+            S3_PREFIX => {
+                let map = parse_key_vals_string(
+                    dest_data,
+                    S3_PREFIX,
+                    &[S3_KEY_BUCKET, S3_KEY_PATH, S3_KEY_CREDENTIALS_PATH],
+                    &[S3_KEY_REGION, S3_KEY_ENDPOINT, S3_KEY_CREDENTIALS_PROFILE],
+                )?;
+
+                let bucket = map
+                    .get(S3_KEY_BUCKET)
+                    .ok_or_else(|| anyhow::anyhow!("missing {S3_KEY_BUCKET}"))?
+                    .to_string();
+                let path = map
+                    .get(S3_KEY_PATH)
+                    .ok_or_else(|| anyhow::anyhow!("missing {S3_KEY_PATH}"))?
+                    .to_string();
+                let credentials_path = map
+                    .get(S3_KEY_CREDENTIALS_PATH)
+                    .ok_or_else(|| anyhow::anyhow!("missing {S3_KEY_CREDENTIALS_PATH}"))?
+                    .to_string();
+
+                let region = map.get(S3_KEY_REGION).cloned();
+                let endpoint = map.get(S3_KEY_ENDPOINT).cloned();
+
+                let mut base_path = PathBuf::from(path);
+                if !base_path.as_os_str().is_empty()
+                    && !base_path.as_os_str().to_string_lossy().ends_with('/')
+                {
+                    base_path.push("");
+                }
+                let credentials_profile = map.get(S3_KEY_CREDENTIALS_PROFILE).cloned();
+
+                Ok(PathDescriptor::S3 {
+                    bucket,
+                    base_path,
+                    region,
+                    endpoint,
+                    credentials_path: StringFileData::OnDisk(credentials_path.into()),
+                    credentials_profile,
                 })
             }
 
@@ -234,7 +320,7 @@ mod tests {
                     username: "user".to_string(),
                     remote_address: "example.com".to_string(),
                     remote_path: "/home/user2/something_else.txt".to_string(),
-                    identity: IdentitySource::OnDisk("/home/user/key.pem".into()),
+                    identity: StringFileData::OnDisk("/home/user/key.pem".into()),
                 }
             );
         }
@@ -251,7 +337,7 @@ mod tests {
                     username: "user".to_string(),
                     remote_address: "example.com:8888".to_string(),
                     remote_path: "/home/user2/something_else.txt".to_string(),
-                    identity: IdentitySource::OnDisk("/home/user/key.pem".into()),
+                    identity: StringFileData::OnDisk("/home/user/key.pem".into()),
                 }
             );
         }
@@ -277,6 +363,64 @@ mod tests {
     }
 
     #[test]
+    fn s3_path_descriptor_parse_and_display() {
+        let s = format!(
+            "s3:bucket=my-bucket;s3-path=sync/;region=us-east-1;endpoint=http://127.0.0.1:4566;{S3_KEY_CREDENTIALS_PATH}=/tmp/aws-creds;profile=my-profile"
+        );
+        let d = PathDescriptor::from_str(&s).unwrap();
+        assert_eq!(
+            d,
+            PathDescriptor::S3 {
+                bucket: "my-bucket".into(),
+                base_path: PathBuf::from("sync/"),
+                region: Some("us-east-1".into()),
+                endpoint: Some("http://127.0.0.1:4566".into()),
+                credentials_path: StringFileData::OnDisk("/tmp/aws-creds".into()),
+                credentials_profile: Some("my-profile".to_string())
+            }
+        );
+        let serialized = d.to_string();
+        assert!(serialized.contains("bucket=my-bucket"));
+        assert!(serialized.contains("s3-path=sync/"));
+        assert!(serialized.contains(&format!("{S3_KEY_CREDENTIALS_PATH}=/tmp/aws-creds")));
+        assert!(serialized.contains("profile=my-profile"));
+    }
+
+    #[test]
+    fn s3_profile_omitted_when_none() {
+        let s = format!(
+            "s3:bucket=b;s3-path=sync/;region=us-east-1;{S3_KEY_CREDENTIALS_PATH}=/tmp/creds"
+        );
+        let d = PathDescriptor::from_str(&s).unwrap();
+
+        // Parsed shape
+        if let PathDescriptor::S3 {
+            credentials_profile,
+            ..
+        } = &d
+        {
+            assert!(credentials_profile.is_none());
+        } else {
+            panic!("expected S3 descriptor");
+        }
+
+        // Serialized form should NOT include profile=
+        let serialized = d.to_string();
+        assert!(!serialized.contains("profile="));
+    }
+
+    #[test]
+    fn s3_base_path_normalized_trailing_slash() {
+        let d = PathDescriptor::from_str(&format!(
+            "s3:bucket=b;s3-path=sync;{S3_KEY_CREDENTIALS_PATH}=/tmp/creds"
+        ))
+        .unwrap();
+        if let PathDescriptor::S3 { base_path, .. } = d {
+            assert_eq!(base_path, PathBuf::from("sync/"));
+        }
+    }
+
+    #[test]
     fn path_descriptor_parse_back_and_forth() {
         {
             let s = "local:path=/home/user/something.txt";
@@ -294,7 +438,7 @@ mod tests {
                     username: "user".to_string(),
                     remote_address: "example.com".to_string(),
                     remote_path: "/home/user2/something_else.txt".to_string(),
-                    identity: IdentitySource::OnDisk("/home/user/key.pem".into()),
+                    identity: StringFileData::OnDisk("/home/user/key.pem".into()),
                 }
             );
             {
@@ -331,7 +475,7 @@ mod tests {
                     username: "user".to_string(),
                     remote_address: "example.com:8822".to_string(),
                     remote_path: "/home/user2/something_else.txt".to_string(),
-                    identity: IdentitySource::OnDisk("/home/user/key.pem".into()),
+                    identity: StringFileData::OnDisk("/home/user/key.pem".into()),
                 }
             );
             {

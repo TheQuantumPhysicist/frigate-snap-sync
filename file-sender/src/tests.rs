@@ -7,6 +7,7 @@ use russh::keys::ssh_encoding::EncodePem;
 use std::{
     fmt::{Debug, Display},
     path::{Path, PathBuf},
+    str::FromStr,
     sync::Arc,
 };
 use test_utils::random::{
@@ -176,7 +177,7 @@ async fn sftp_filesystem(
         username: username.to_string(),
         remote_address: format!("127.0.0.1:{ssh_port}"),
         remote_path: base_remote_path,
-        identity: crate::path_descriptor::IdentitySource::InMemory(priv_key_openssh_format_str),
+        identity: crate::path_descriptor::StringFileData::InMemory(priv_key_openssh_format_str),
     }))
     .unwrap();
 
@@ -195,4 +196,84 @@ fn gen_ssh_private_key() -> anyhow::Result<russh::keys::PrivateKey> {
         russh::keys::ssh_key::Algorithm::Ed25519,
     )?;
     Ok(key)
+}
+
+#[rstest]
+#[case(true)] // happy path: matching credentials
+#[case(false)] // negative path: wrong credentials -> auth failure
+#[tokio::test]
+#[trace]
+async fn s3_filesystem(#[case] creds_ok: bool, random_seed: Seed) {
+    init_logging();
+
+    if std::env::var("SNAPSYNC_CONTAINERIZED_TESTS").is_err() {
+        eprintln!(
+            "Skipping S3 test; set SNAPSYNC_CONTAINERIZED_TESTS=1 to run containerized tests."
+        );
+        return;
+    }
+
+    let mut rng = make_seedable_rng(random_seed);
+    let bucket = format!("test-{}", gen_random_string(&mut rng, 8..12).to_lowercase());
+    let base_path: PathBuf = PathBuf::from(gen_random_string(&mut rng, 6..10));
+
+    // ---- Start MinIO (real auth enforced) -----------------------------------
+    // API on 9000, Console on 9001
+    let access_key = "minio_test_user";
+    let secret_key = "minio_test_secret_12345678";
+
+    // Bitnami image auto-starts the server with these env vars; no command needed.
+    let mut podman = Podman::new("S3Test", "bitnami/minio:latest")
+        .with_port_mapping(None, 9000)
+        .with_port_mapping(None, 9001)
+        .with_env("MINIO_ROOT_USER", access_key)
+        .with_env("MINIO_ROOT_PASSWORD", secret_key);
+    podman.run();
+
+    let api_port = podman.get_port_mapping(9000).expect("minio api port");
+    // let console_port = podman.get_port_mapping(9001).unwrap(); // not used
+
+    // Give MinIO time to come up
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+    let endpoint = format!("http://127.0.0.1:{api_port}");
+
+    // ---- Credentials INI (good vs bad) --------------------------------------
+    let (ini_ak, ini_sk) = if creds_ok {
+        (access_key, secret_key)
+    } else {
+        ("wrong", "wrong")
+    };
+
+    let ini =
+        format!("[default]\naws_access_key_id = {ini_ak}\naws_secret_access_key = {ini_sk}\n");
+    let creds_file = tempfile::NamedTempFile::new().unwrap();
+    std::fs::write(creds_file.path(), ini).unwrap();
+
+    // Distinct bucket to avoid cross-case interference
+    let test_bucket = if creds_ok {
+        bucket.clone()
+    } else {
+        format!("{bucket}-bad")
+    };
+
+    let desc = PathDescriptor::from_str(&format!(
+        "s3:bucket={test_bucket};s3-path={};region=us-east-1;endpoint={endpoint};credentials-path={}",
+        base_path.display(),
+        creds_file.path().display(),
+    ))
+    .unwrap();
+
+    let fs = make_store(&Arc::new(desc)).unwrap();
+
+    if creds_ok {
+        fs.init().await.unwrap(); // should create bucket + base prefix
+        test_store(fs.as_ref(), &mut rng).await;
+    } else {
+        // Init should attempt a bucket op and fail with auth error.
+        assert!(
+            fs.init().await.is_err(),
+            "expected auth failure against MinIO with wrong credentials"
+        );
+    }
 }

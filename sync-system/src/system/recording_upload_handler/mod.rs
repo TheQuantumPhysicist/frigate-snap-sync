@@ -96,6 +96,7 @@ where
                             if let Some(sender) = confirm_sender && sender.send(()).is_err() {
                                 tracing::error!("CRITICAL: Oneshot confirmation sender for a task in {STRUCT_NAME} failed to send. This indicates a race condition.");
                             }
+
                         }
                         RecordingsUploadTaskHandlerCommand::GetTaskCount(result_sender) => {
                             if result_sender.send(self.running_tasks.len()).is_err() {

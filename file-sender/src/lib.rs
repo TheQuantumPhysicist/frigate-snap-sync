@@ -1,10 +1,12 @@
 pub mod path_descriptor;
 mod store_local;
+mod store_s3;
 mod store_sftp;
 mod store_virtual;
 pub mod traits;
 
-use path_descriptor::{IdentitySource, PathDescriptor};
+use crate::store_s3::AsyncS3Impl;
+use path_descriptor::{PathDescriptor, StringFileData};
 use std::{
     path::{Path, PathBuf},
     sync::Arc,
@@ -31,6 +33,25 @@ pub fn make_store(
             identity.clone(),
             remote_path,
         ),
+        PathDescriptor::S3 {
+            bucket,
+            base_path,
+            region,
+            endpoint,
+            credentials_path,
+            credentials_profile,
+        } => {
+            let s3 = AsyncS3Impl::new(
+                bucket,
+                base_path,
+                region.clone(),
+                endpoint.clone(),
+                credentials_path.clone(),
+                credentials_profile.clone(),
+                path_descriptor.clone(),
+            );
+            Ok(Arc::new(s3))
+        }
     }
 }
 
@@ -46,7 +67,7 @@ fn make_sftp_store(
     path_descriptor: Arc<PathDescriptor>,
     host: &str,
     username: &str,
-    priv_key_path: IdentitySource,
+    priv_key_path: StringFileData,
     destination_path: impl Into<PathBuf>,
 ) -> anyhow::Result<Arc<dyn StoreDestination<Error = anyhow::Error>>> {
     let sftp = AsyncSftpImpl::new_with_public_key(

@@ -20,6 +20,14 @@ tracing = { workspace = true }
 vfs = { workspace = true }
 utils = { workspace = true }
 
+aws-config = { workspace = true }
+aws-credential-types = { workspace = true }
+aws-sdk-s3 = { workspace = true, default-features = true }
+aws-smithy-types = { workspace = true }
+bytes = { workspace = true }
+futures = { workspace = true }
+ini = { workspace = true }
+
 [dev-dependencies]
 rstest = { workspace = true }
 russh = { workspace = true }

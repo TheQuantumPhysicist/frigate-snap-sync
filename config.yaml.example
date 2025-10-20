@@ -12,14 +12,24 @@ mqtt_password:
 # Ensure that EVERY client connecting has a unique id. Otherwise, this can lead to confusion in connection ownership.
 mqtt_client_id: sam-frigate-video-sync
 
-# Currently you can use local destinations and sftp destinations
+# Currently you can use local, sftp, and s3 destinations
 # You can add as many as you like. They will all be synced
 upload_destinations:
   # Local destinations look like this
   - local:path=/home/username/SomeDirectory/video-sync
-  # Sftp destinations look as follow
-  # Notice that authentication can only be done with an identity private key file
+
+  # Sftp destinations
+  # Authentication must be done with a private key file (identity private key file)
   - sftp:username=user;host=example.com;remote-path=/dir/to/upload/to/;identity=/home/user/key.pem
+
+  # S3 destinations
+  # bucket            → required, lowercase DNS-style bucket name
+  # s3-path           → optional base path/prefix inside the bucket
+  # region            → optional (depending on S3 you use), example: "us-east-1"
+  # endpoint          → optional for S3-compatible storage (e.g. LocalStack, MinIO)
+  # credentials-path  → required, path to AWS-style credentials file. See: https://docs.aws.amazon.com/sdkref/latest/guide/file-format.html
+  # profile           → optional, profile name in credentials file (default is [default]). See: https://docs.aws.amazon.com/sdkref/latest/guide/file-format.html
+  - s3:bucket=my-bucket-name;s3-path=video-sync/;region=us-east-1;credentials-path=/config/aws-creds;profile=default
 
 # The API address of Frigate. This is used to retrieve extra data, like video clips
 frigate_api_address: "http://127.0.0.1:5000"
