@@ -10,7 +10,10 @@ ENV LANGUAGE=en_US.UTF-8
 RUN echo "LC_ALL=en_US.UTF-8" >> /etc/environment
 RUN apt-get update
 RUN apt-get upgrade -y
-RUN apt-get install -y curl tmux nano net-tools procps htop git build-essential cmake pkg-config libssl-dev sudo
+RUN apt-get install -y curl tmux nano net-tools procps htop git build-essential cmake pkg-config libssl-dev gosu
+
+COPY entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 RUN groupadd --gid 10246                runner
 RUN useradd  --gid 10246 --uid 10246 -m runner
@@ -30,16 +33,6 @@ RUN cd /home/runner/frigate-snap-sync/
 WORKDIR /home/runner/frigate-snap-sync/
 RUN (cargo update && cargo build --release --all) || (git checkout Cargo.lock && cargo build --release --all --locked)
 
-USER root
-
-RUN echo "" >> /etc/sudoers
-RUN echo "runner ALL=(ALL) NOPASSWD: /usr/bin/apt-get update" >> /etc/sudoers
-RUN echo "runner ALL=(ALL) NOPASSWD: /usr/bin/apt-get clean" >> /etc/sudoers
-RUN echo "runner ALL=(ALL) NOPASSWD: /usr/bin/apt-get upgrade -y" >> /etc/sudoers
-RUN echo "runner ALL=(ALL) NOPASSWD: /usr/bin/apt-file update" >> /etc/sudoers
-
-USER runner
-
 RUN mkdir /home/runner/app/
 RUN cp /home/runner/frigate-snap-sync/target/release/snap-sync /home/runner/app/
 RUN cd /home/runner/app/
@@ -50,4 +43,7 @@ RUN rm -rf /home/runner/frigate-snap-sync/
 RUN rm -rf /home/runner/.rustup/
 RUN rm -rf /home/runner/.cargo/
 
-CMD sudo apt-get update && sudo apt-get upgrade -y && /home/runner/app/snap-sync start -c /config.yaml
+USER root
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD /home/runner/app/snap-sync start -c /config.yaml
