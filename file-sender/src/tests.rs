@@ -223,11 +223,14 @@ async fn s3_filesystem(#[case] creds_ok: bool, random_seed: Seed) {
     let secret_key = "minio_test_secret_12345678";
 
     // Bitnami image auto-starts the server with these env vars; no command needed.
-    let mut podman = Podman::new("S3Test", "docker.io/bitnami/minio:latest")
-        .with_port_mapping(None, 9000)
-        .with_port_mapping(None, 9001)
-        .with_env("MINIO_ROOT_USER", access_key)
-        .with_env("MINIO_ROOT_PASSWORD", secret_key);
+    let mut podman = Podman::new(
+        "S3Test",
+        "docker.io/bitnamilegacy/minio:2025.7.23-debian-12-r5",
+    )
+    .with_port_mapping(None, 9000)
+    .with_port_mapping(None, 9001)
+    .with_env("MINIO_ROOT_USER", access_key)
+    .with_env("MINIO_ROOT_PASSWORD", secret_key);
     podman.run();
 
     let api_port = podman.get_port_mapping(9000).expect("minio api port");
