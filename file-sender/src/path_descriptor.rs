@@ -256,12 +256,9 @@ fn parse_key_vals_string(
 
     for part in input.split(';') {
         let part = part.trim();
-        let (key, value) = part.split_once('=').ok_or_else(|| {
-            anyhow::anyhow!(
-                "Invalid format. Expected key=value. Found: {}",
-                part.to_string()
-            )
-        })?;
+        let (key, value) = part
+            .split_once('=')
+            .ok_or_else(|| anyhow::anyhow!("Invalid format. Expected key=value. Found: {part}"))?;
 
         if !key.is_ascii() {
             return Err(anyhow::anyhow!(
@@ -272,13 +269,12 @@ fn parse_key_vals_string(
         let key = key.to_lowercase();
 
         if result_map.contains_key(&key) {
-            return Err(anyhow::anyhow!("Duplicate key: {}", part.to_string()));
+            return Err(anyhow::anyhow!("Duplicate key: {part}"));
         }
 
         if !allowed_keys.contains(key.as_str()) {
             return Err(anyhow::anyhow!(
-                "Unexpected key for descriptor `{describing_what}`. Key: {}",
-                key.to_string()
+                "Unexpected key for descriptor `{describing_what}`. Key: {key}"
             ));
         }
 
@@ -288,8 +284,7 @@ fn parse_key_vals_string(
     for &key in required_keys {
         if !result_map.contains_key(key) {
             return Err(anyhow::anyhow!(
-                "Required key `{}` for descriptor `{describing_what}` not found.",
-                key.to_string()
+                "Required key `{key}` for descriptor `{describing_what}` not found."
             ));
         }
     }
