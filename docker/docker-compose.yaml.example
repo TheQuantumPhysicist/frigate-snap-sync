@@ -23,3 +23,12 @@ services:
       - ./data-frigate/snap-sync/config.yaml:/config.yaml
       # This is an example of a private key used for sftp
       - ./data-frigate/snap-sync/id_rsa:/id_rsa
+
+    # These are extra security options
+    security_opt:
+      - no-new-privileges=true
+    cap_drop:
+      - NET_RAW
+      - MKNOD
+      - SETPCAP
+      - SETFCAP

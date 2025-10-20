@@ -3,7 +3,7 @@
 set -e
 
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
-PYTHON=$(which python || which python3)
+PYTHON=$(which python3 || which python)
 
 cd "$SCRIPT_DIR"
 
