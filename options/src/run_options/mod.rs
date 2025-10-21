@@ -5,6 +5,7 @@ use clap::{Parser, Subcommand};
 const DEFAULT_CONFIG_FILE_PATH: &str = "config.yaml";
 
 #[derive(Parser)]
+#[command(name = "Frigate Snap-Sync", version)]
 pub struct RunOptions {
     #[clap(subcommand)]
     pub command: RunCommand,
