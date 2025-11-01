@@ -22,5 +22,4 @@ SOFTWARE_IMAGE_NAME=frigate-snap-sync
 IMAGE_NAME="ghcr.io/$DOCKER_USERNAME/$SOFTWARE_IMAGE_NAME"
 
 # Build and push for arm64 and amd64
-docker buildx build --platform linux/amd64,linux/arm64 --push -t ghcr.io/$DOCKER_USERNAME/$SOFTWARE_IMAGE_NAME:$SOFTWARE_VERSION .
-docker buildx build --platform linux/amd64,linux/arm64 --push -t ghcr.io/$DOCKER_USERNAME/$SOFTWARE_IMAGE_NAME:latest .
+docker buildx build --platform linux/amd64,linux/arm64 --build-arg VERSION=$SOFTWARE_VERSION --push -t ghcr.io/$DOCKER_USERNAME/$SOFTWARE_IMAGE_NAME:$SOFTWARE_VERSION -t ghcr.io/$DOCKER_USERNAME/$SOFTWARE_IMAGE_NAME:latest .
