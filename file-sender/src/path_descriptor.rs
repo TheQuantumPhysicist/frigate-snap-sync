@@ -205,13 +205,16 @@ impl FromStr for PathDescriptor {
 
                 let bucket = map
                     .get(S3_KEY_BUCKET)
-                    .ok_or_else(|| anyhow::anyhow!("missing {S3_KEY_BUCKET}"))?.clone();
+                    .ok_or_else(|| anyhow::anyhow!("missing {S3_KEY_BUCKET}"))?
+                    .clone();
                 let path = map
                     .get(S3_KEY_PATH)
-                    .ok_or_else(|| anyhow::anyhow!("missing {S3_KEY_PATH}"))?.clone();
+                    .ok_or_else(|| anyhow::anyhow!("missing {S3_KEY_PATH}"))?
+                    .clone();
                 let credentials_path = map
                     .get(S3_KEY_CREDENTIALS_PATH)
-                    .ok_or_else(|| anyhow::anyhow!("missing {S3_KEY_CREDENTIALS_PATH}"))?.clone();
+                    .ok_or_else(|| anyhow::anyhow!("missing {S3_KEY_CREDENTIALS_PATH}"))?
+                    .clone();
 
                 let region = map.get(S3_KEY_REGION).cloned();
                 let endpoint = map.get(S3_KEY_ENDPOINT).cloned();
