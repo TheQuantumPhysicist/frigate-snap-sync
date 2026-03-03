@@ -188,9 +188,9 @@ impl FromStr for PathDescriptor {
 
                 // A query entry with identity must exist
                 Ok(PathDescriptor::Sftp {
-                    username: username.to_string(),
-                    remote_address: host.to_string(),
-                    remote_path: remote_path.to_string(),
+                    username: username.clone(),
+                    remote_address: host.clone(),
+                    remote_path: remote_path.clone(),
                     identity: StringFileData::OnDisk(identity.into()),
                 })
             }
@@ -205,16 +205,13 @@ impl FromStr for PathDescriptor {
 
                 let bucket = map
                     .get(S3_KEY_BUCKET)
-                    .ok_or_else(|| anyhow::anyhow!("missing {S3_KEY_BUCKET}"))?
-                    .to_string();
+                    .ok_or_else(|| anyhow::anyhow!("missing {S3_KEY_BUCKET}"))?.clone();
                 let path = map
                     .get(S3_KEY_PATH)
-                    .ok_or_else(|| anyhow::anyhow!("missing {S3_KEY_PATH}"))?
-                    .to_string();
+                    .ok_or_else(|| anyhow::anyhow!("missing {S3_KEY_PATH}"))?.clone();
                 let credentials_path = map
                     .get(S3_KEY_CREDENTIALS_PATH)
-                    .ok_or_else(|| anyhow::anyhow!("missing {S3_KEY_CREDENTIALS_PATH}"))?
-                    .to_string();
+                    .ok_or_else(|| anyhow::anyhow!("missing {S3_KEY_CREDENTIALS_PATH}"))?.clone();
 
                 let region = map.get(S3_KEY_REGION).cloned();
                 let endpoint = map.get(S3_KEY_ENDPOINT).cloned();
@@ -278,7 +275,7 @@ fn parse_key_vals_string(
             ));
         }
 
-        result_map.insert(key.to_string(), value.to_string());
+        result_map.insert(key.clone(), value.to_string());
     }
 
     for &key in required_keys {
