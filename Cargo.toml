@@ -33,7 +33,7 @@ test-utils = { workspace = true }
 
 [workspace.package]
 edition = "2024"
-rust-version = "1.89"
+rust-version = "1.91"
 version = "0.3.0"
 license = "MIT"
 
