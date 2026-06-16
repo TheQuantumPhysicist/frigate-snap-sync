@@ -59,6 +59,7 @@ async fn recording_upload(random_seed: Seed) {
     let frigate_config = FrigateApiConfig {
         frigate_api_base_url: "http://someurl.com:5000/".to_string(),
         frigate_api_proxy: None,
+        frigate_api_auth: None,
         delay_after_startup: std::time::Duration::ZERO,
     };
 
@@ -284,6 +285,7 @@ async fn recording_upload_mocked(random_seed: Seed) {
     let frigate_config = FrigateApiConfig {
         frigate_api_base_url: "http://someurl.com:5000/".to_string(),
         frigate_api_proxy: None,
+        frigate_api_auth: None,
         delay_after_startup: std::time::Duration::ZERO,
     };
 
@@ -451,6 +453,7 @@ async fn recording_upload_mocked_failures_then_success(random_seed: Seed) {
     let frigate_config = FrigateApiConfig {
         frigate_api_base_url: "http://someurl.com:5000/".to_string(),
         frigate_api_proxy: None,
+        frigate_api_auth: None,
         delay_after_startup: std::time::Duration::ZERO,
     };
 
@@ -628,6 +631,7 @@ async fn recording_upload_mocked_failures_return_not_done(random_seed: Seed) {
     let frigate_config = FrigateApiConfig {
         frigate_api_base_url: "http://someurl.com:5000/".to_string(),
         frigate_api_proxy: None,
+        frigate_api_auth: None,
         delay_after_startup: std::time::Duration::ZERO,
     };
 
@@ -726,6 +730,7 @@ async fn recording_upload_mocked_failures_in_download_then_upload_leads_to_not_d
     let frigate_config = FrigateApiConfig {
         frigate_api_base_url: "http://someurl.com:5000/".to_string(),
         frigate_api_proxy: None,
+        frigate_api_auth: None,
         delay_after_startup: std::time::Duration::ZERO,
     };
 

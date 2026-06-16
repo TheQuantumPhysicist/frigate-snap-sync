@@ -33,6 +33,13 @@ upload_destinations:
 
 # The API address of Frigate. This is used to retrieve extra data, like video clips
 frigate_api_address: "http://127.0.0.1:5000"
+# Optional credentials for Frigate's authenticated API, for example port 8971.
+# Leave these unset when using the internal unauthenticated API on port 5000.
+# frigate_api_address: "https://127.0.0.1:8971"
+# frigate_api_username: snap-sync
+# Set only one of frigate_api_password or frigate_api_password_file.
+# frigate_api_password:
+# frigate_api_password_file: /run/secrets/frigate_api_password
 
 # How long to wait after Frigate startup to start uploads.
 # In other words: If Frigate restarts, uploads will only happen after the given period has passed.

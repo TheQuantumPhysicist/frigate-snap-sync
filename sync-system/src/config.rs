@@ -1,4 +1,5 @@
 use file_sender::path_descriptor::PathDescriptor;
+use frigate_api_caller::config::FrigateApiAuthConfig;
 use serde::{Deserialize, Deserializer, de::Error};
 use std::{
     path::{Path, PathBuf},
@@ -20,6 +21,10 @@ pub enum ConfigError {
     FileExistsButCannotBeReadToString(std::io::Error),
     #[error("Could not parse file to config; either invalid yaml or missing config: `{0}`")]
     FileFormatCouldNotBeParsed(serde_yml::Error),
+    #[error("Invalid Frigate API auth config: `{0}`")]
+    InvalidFrigateApiAuthConfig(String),
+    #[error("Could not read Frigate API password file `{0}`: `{1}`")]
+    FrigateApiPasswordFileCouldNotBeRead(PathBuf, std::io::Error),
 }
 
 #[must_use]
@@ -35,6 +40,9 @@ pub struct VideoSyncConfig {
 
     frigate_api_address: String,
     frigate_api_proxy: Option<String>,
+    frigate_api_username: Option<String>,
+    frigate_api_password: Option<String>,
+    frigate_api_password_file: Option<PathBuf>,
 
     #[serde(deserialize_with = "upload_destinations_from_str")]
     upload_destinations: PathDescriptors,
@@ -104,6 +112,41 @@ impl VideoSyncConfig {
         match &self.frigate_api_proxy {
             Some(s) => Some(s.as_str()),
             None => None,
+        }
+    }
+
+    pub fn frigate_api_auth(&self) -> Result<Option<FrigateApiAuthConfig>, ConfigError> {
+        let has_auth_config = self.frigate_api_username.is_some()
+            || self.frigate_api_password.is_some()
+            || self.frigate_api_password_file.is_some();
+        if !has_auth_config {
+            return Ok(None);
+        }
+
+        let username = self.frigate_api_username.clone().ok_or_else(|| {
+            ConfigError::InvalidFrigateApiAuthConfig(
+                "frigate_api_username is required when Frigate API auth is configured".to_string(),
+            )
+        })?;
+
+        match (&self.frigate_api_password, &self.frigate_api_password_file) {
+            (Some(_), Some(_)) => Err(ConfigError::InvalidFrigateApiAuthConfig(
+                "set only one of frigate_api_password or frigate_api_password_file".to_string(),
+            )),
+            (Some(password), None) => Ok(Some(FrigateApiAuthConfig {
+                username,
+                password: password.clone(),
+            })),
+            (None, Some(path)) => {
+                let password = std::fs::read_to_string(path)
+                    .map_err(|e| ConfigError::FrigateApiPasswordFileCouldNotBeRead(path.clone(), e))?
+                    .trim()
+                    .to_string();
+                Ok(Some(FrigateApiAuthConfig { username, password }))
+            }
+            (None, None) => Err(ConfigError::InvalidFrigateApiAuthConfig(
+                "frigate_api_password or frigate_api_password_file is required when Frigate API auth is configured".to_string(),
+            )),
         }
     }
 
@@ -179,5 +222,103 @@ mod tests {
         let _config =
             VideoSyncConfig::from_file_or_default(workspace_root().join("config.yaml.example"))
                 .unwrap();
+    }
+
+    #[test]
+    fn frigate_api_auth_uses_password_file() {
+        let password_file = tempfile::NamedTempFile::new().unwrap();
+        std::fs::write(password_file.path(), "secret-password\n").unwrap();
+
+        let config = test_config(
+            Some("snap-sync".to_string()),
+            None,
+            Some(password_file.path().to_path_buf()),
+        );
+
+        let auth = config.frigate_api_auth().unwrap().unwrap();
+        assert_eq!(auth.username, "snap-sync");
+        assert_eq!(auth.password, "secret-password");
+    }
+
+    #[test]
+    fn frigate_api_auth_is_optional() {
+        let config = test_config(None, None, None);
+
+        assert!(config.frigate_api_auth().unwrap().is_none());
+    }
+
+    #[test]
+    fn frigate_api_auth_uses_password() {
+        let auth = test_config(
+            Some("snap-sync".to_string()),
+            Some("secret-password".to_string()),
+            None,
+        )
+        .frigate_api_auth()
+        .unwrap()
+        .unwrap();
+
+        assert_eq!(auth.username, "snap-sync");
+        assert_eq!(auth.password, "secret-password");
+    }
+
+    #[test]
+    fn frigate_api_auth_requires_username() {
+        let error = test_config(None, Some("secret-password".to_string()), None)
+            .frigate_api_auth()
+            .unwrap_err();
+
+        assert!(matches!(error, ConfigError::InvalidFrigateApiAuthConfig(_)));
+    }
+
+    #[test]
+    fn frigate_api_auth_requires_password_source() {
+        let error = test_config(Some("snap-sync".to_string()), None, None)
+            .frigate_api_auth()
+            .unwrap_err();
+
+        assert!(matches!(error, ConfigError::InvalidFrigateApiAuthConfig(_)));
+    }
+
+    #[test]
+    fn frigate_api_auth_allows_one_password_source() {
+        let password_file = tempfile::NamedTempFile::new().unwrap();
+        std::fs::write(password_file.path(), "secret-password\n").unwrap();
+
+        let error = test_config(
+            Some("snap-sync".to_string()),
+            Some("secret-password".to_string()),
+            Some(password_file.path().to_path_buf()),
+        )
+        .frigate_api_auth()
+        .unwrap_err();
+
+        assert!(matches!(error, ConfigError::InvalidFrigateApiAuthConfig(_)));
+    }
+
+    fn test_config(
+        frigate_api_username: Option<String>,
+        frigate_api_password: Option<String>,
+        frigate_api_password_file: Option<PathBuf>,
+    ) -> VideoSyncConfig {
+        VideoSyncConfig {
+            mqtt_frigate_topic_prefix: None,
+            mqtt_host: "127.0.0.1".to_string(),
+            mqtt_port: None,
+            mqtt_keep_alive_seconds: None,
+            mqtt_username: None,
+            mqtt_password: None,
+            mqtt_client_id: None,
+            frigate_api_address: "https://127.0.0.1:8971".to_string(),
+            frigate_api_proxy: None,
+            frigate_api_username,
+            frigate_api_password,
+            frigate_api_password_file,
+            upload_destinations: vec![Arc::new(
+                PathDescriptor::from_str("local:path=/tmp").unwrap(),
+            )]
+            .into(),
+            delay_after_startup: None,
+        }
     }
 }

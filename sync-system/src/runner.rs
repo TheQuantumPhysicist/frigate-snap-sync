@@ -6,13 +6,16 @@ use mqtt_handler::config::MqttHandlerConfig;
 use options::run_options::start_options::StartOptions;
 use std::sync::Arc;
 
-impl From<&VideoSyncConfig> for FrigateApiConfig {
-    fn from(config: &VideoSyncConfig) -> Self {
-        Self {
+impl TryFrom<&VideoSyncConfig> for FrigateApiConfig {
+    type Error = anyhow::Error;
+
+    fn try_from(config: &VideoSyncConfig) -> anyhow::Result<Self> {
+        Ok(Self {
             frigate_api_base_url: config.frigate_api_address().to_string(),
             frigate_api_proxy: config.frigate_api_proxy().map(str::to_string),
+            frigate_api_auth: config.frigate_api_auth()?,
             delay_after_startup: std::time::Duration::ZERO,
-        }
+        })
     }
 }
 
@@ -63,7 +66,7 @@ pub async fn run(options: StartOptions) -> anyhow::Result<()> {
 
         let sync_sys = SyncSystem::new(
             config.upload_destinations().clone(),
-            Arc::new(FrigateApiConfig::from(&config)),
+            Arc::new(FrigateApiConfig::try_from(&config)?),
             frigate_api_maker,
             file_sender_maker,
             mqtt_data_receiver,
