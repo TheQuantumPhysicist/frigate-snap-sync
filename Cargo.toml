@@ -74,6 +74,7 @@ russh = "0.57"
 serial_test = "3.2"
 ssh2 = "0.9"
 vfs = "0.12"
+zeroize = "1.8"
 
 file-sender = { path = "file-sender" }
 frigate-api-caller = { path = "frigate-api-caller" }

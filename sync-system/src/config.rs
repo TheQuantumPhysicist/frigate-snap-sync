@@ -116,36 +116,34 @@ impl VideoSyncConfig {
     }
 
     pub fn frigate_api_auth(&self) -> Result<Option<FrigateApiAuthConfig>, ConfigError> {
-        let has_auth_config = self.frigate_api_username.is_some()
-            || self.frigate_api_password.is_some()
-            || self.frigate_api_password_file.is_some();
-        if !has_auth_config {
-            return Ok(None);
-        }
-
-        let username = self.frigate_api_username.clone().ok_or_else(|| {
-            ConfigError::InvalidFrigateApiAuthConfig(
-                "frigate_api_username is required when Frigate API auth is configured".to_string(),
-            )
-        })?;
-
-        match (&self.frigate_api_password, &self.frigate_api_password_file) {
-            (Some(_), Some(_)) => Err(ConfigError::InvalidFrigateApiAuthConfig(
+        match (
+            &self.frigate_api_username,
+            &self.frigate_api_password,
+            &self.frigate_api_password_file,
+        ) {
+            (None, None, None) => Ok(None),
+            (Some(_), Some(_), Some(_)) => Err(ConfigError::InvalidFrigateApiAuthConfig(
                 "set only one of frigate_api_password or frigate_api_password_file".to_string(),
             )),
-            (Some(password), None) => Ok(Some(FrigateApiAuthConfig {
-                username,
+            (Some(username), Some(password), None) => Ok(Some(FrigateApiAuthConfig {
+                username: username.clone(),
                 password: password.clone(),
             })),
-            (None, Some(path)) => {
+            (Some(username), None, Some(path)) => {
                 let password = std::fs::read_to_string(path)
                     .map_err(|e| ConfigError::FrigateApiPasswordFileCouldNotBeRead(path.clone(), e))?
                     .trim()
                     .to_string();
-                Ok(Some(FrigateApiAuthConfig { username, password }))
+                Ok(Some(FrigateApiAuthConfig {
+                    username: username.clone(),
+                    password,
+                }))
             }
-            (None, None) => Err(ConfigError::InvalidFrigateApiAuthConfig(
+            (Some(_), None, None) => Err(ConfigError::InvalidFrigateApiAuthConfig(
                 "frigate_api_password or frigate_api_password_file is required when Frigate API auth is configured".to_string(),
+            )),
+            (None, _, _) => Err(ConfigError::InvalidFrigateApiAuthConfig(
+                "frigate_api_username is required when Frigate API auth is configured".to_string(),
             )),
         }
     }
@@ -208,6 +206,15 @@ impl From<Vec<Arc<PathDescriptor>>> for PathDescriptors {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::rstest;
+
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    enum ExpectedFrigateApiAuth {
+        None,
+        Password,
+        PasswordFile,
+        Error,
+    }
 
     fn workspace_root() -> std::path::PathBuf {
         use std::str::FromStr;
@@ -224,76 +231,68 @@ mod tests {
                 .unwrap();
     }
 
-    #[test]
-    fn frigate_api_auth_uses_password_file() {
-        let password_file = tempfile::NamedTempFile::new().unwrap();
-        std::fs::write(password_file.path(), "secret-password\n").unwrap();
+    #[rstest]
+    #[case(None, None, false, ExpectedFrigateApiAuth::None)]
+    #[case(Some("snap-sync"), None, false, ExpectedFrigateApiAuth::Error)]
+    #[case(None, Some("secret-password"), false, ExpectedFrigateApiAuth::Error)]
+    #[case(None, None, true, ExpectedFrigateApiAuth::Error)]
+    #[case(
+        Some("snap-sync"),
+        Some("secret-password"),
+        false,
+        ExpectedFrigateApiAuth::Password
+    )]
+    #[case(Some("snap-sync"), None, true, ExpectedFrigateApiAuth::PasswordFile)]
+    #[case(None, Some("secret-password"), true, ExpectedFrigateApiAuth::Error)]
+    #[case(
+        Some("snap-sync"),
+        Some("secret-password"),
+        true,
+        ExpectedFrigateApiAuth::Error
+    )]
+    fn frigate_api_auth_validation_matrix(
+        #[case] username: Option<&str>,
+        #[case] password: Option<&str>,
+        #[case] has_password_file: bool,
+        #[case] expected: ExpectedFrigateApiAuth,
+    ) {
+        let password_file = if has_password_file {
+            let password_file = tempfile::NamedTempFile::new().unwrap();
+            std::fs::write(password_file.path(), "file-password\n").unwrap();
+            Some(password_file)
+        } else {
+            None
+        };
+        let password_file_path = password_file
+            .as_ref()
+            .map(|password_file| password_file.path().to_path_buf());
 
-        let config = test_config(
-            Some("snap-sync".to_string()),
-            None,
-            Some(password_file.path().to_path_buf()),
-        );
-
-        let auth = config.frigate_api_auth().unwrap().unwrap();
-        assert_eq!(auth.username, "snap-sync");
-        assert_eq!(auth.password, "secret-password");
-    }
-
-    #[test]
-    fn frigate_api_auth_is_optional() {
-        let config = test_config(None, None, None);
-
-        assert!(config.frigate_api_auth().unwrap().is_none());
-    }
-
-    #[test]
-    fn frigate_api_auth_uses_password() {
-        let auth = test_config(
-            Some("snap-sync".to_string()),
-            Some("secret-password".to_string()),
-            None,
+        let result = test_config(
+            username.map(ToString::to_string),
+            password.map(ToString::to_string),
+            password_file_path,
         )
-        .frigate_api_auth()
-        .unwrap()
-        .unwrap();
+        .frigate_api_auth();
 
-        assert_eq!(auth.username, "snap-sync");
-        assert_eq!(auth.password, "secret-password");
-    }
-
-    #[test]
-    fn frigate_api_auth_requires_username() {
-        let error = test_config(None, Some("secret-password".to_string()), None)
-            .frigate_api_auth()
-            .unwrap_err();
-
-        assert!(matches!(error, ConfigError::InvalidFrigateApiAuthConfig(_)));
-    }
-
-    #[test]
-    fn frigate_api_auth_requires_password_source() {
-        let error = test_config(Some("snap-sync".to_string()), None, None)
-            .frigate_api_auth()
-            .unwrap_err();
-
-        assert!(matches!(error, ConfigError::InvalidFrigateApiAuthConfig(_)));
-    }
-
-    #[test]
-    fn frigate_api_auth_allows_one_password_source() {
-        let password_file = tempfile::NamedTempFile::new().unwrap();
-        std::fs::write(password_file.path(), "secret-password\n").unwrap();
-
-        let error = test_config(
-            Some("snap-sync".to_string()),
-            Some("secret-password".to_string()),
-            Some(password_file.path().to_path_buf()),
-        )
-        .frigate_api_auth()
-        .unwrap_err();
-
-        assert!(matches!(error, ConfigError::InvalidFrigateApiAuthConfig(_)));
+        match expected {
+            ExpectedFrigateApiAuth::None => assert!(result.unwrap().is_none()),
+            ExpectedFrigateApiAuth::Password => {
+                let auth = result.unwrap().unwrap();
+                assert_eq!(auth.username, "snap-sync");
+                assert_eq!(auth.password, "secret-password");
+            }
+            ExpectedFrigateApiAuth::PasswordFile => {
+                let auth = result.unwrap().unwrap();
+                assert_eq!(auth.username, "snap-sync");
+                assert_eq!(auth.password, "file-password");
+            }
+            ExpectedFrigateApiAuth::Error => {
+                assert!(matches!(
+                    result.unwrap_err(),
+                    ConfigError::InvalidFrigateApiAuthConfig(_)
+                ));
+            }
+        }
     }
 
     fn test_config(

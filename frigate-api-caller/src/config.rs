@@ -1,3 +1,5 @@
+use zeroize::Zeroize;
+
 #[must_use]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FrigateApiConfig {
@@ -10,7 +12,8 @@ pub struct FrigateApiConfig {
 }
 
 #[must_use]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Zeroize)]
+#[zeroize(drop)]
 pub struct FrigateApiAuthConfig {
     pub username: String,
     pub password: String,

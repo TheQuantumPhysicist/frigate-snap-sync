@@ -12,7 +12,6 @@ use reqwest::{Method, Response, StatusCode};
 use serde::Serialize;
 use serde_json::Value;
 use std::sync::Arc;
-use tokio::sync::Mutex;
 use tracing::trace_span;
 use traits::FrigateApi;
 
@@ -41,11 +40,7 @@ pub fn make_frigate_client(config: FrigateApiConfig) -> anyhow::Result<Arc<dyn F
 
     tracing::trace!("Building client done");
 
-    let result = FrigateApiClient {
-        client,
-        config,
-        logged_in: Mutex::new(false),
-    };
+    let result = FrigateApiClient { client, config };
 
     tracing::trace!("Returning API object");
 
@@ -55,7 +50,6 @@ pub fn make_frigate_client(config: FrigateApiConfig) -> anyhow::Result<Arc<dyn F
 struct FrigateApiClient {
     client: reqwest::Client,
     config: FrigateApiConfig,
-    logged_in: Mutex<bool>,
 }
 
 #[derive(Serialize)]
@@ -165,21 +159,21 @@ impl FrigateApiClient {
         method: Method,
         url: &str,
     ) -> anyhow::Result<Response> {
-        if self.config.frigate_api_auth.is_some() {
-            self.ensure_logged_in().await?;
+        let response = self.send_request(method.clone(), url).await?;
+        if response.status() != StatusCode::UNAUTHORIZED {
+            return response
+                .error_for_status()
+                .context("Frigate API request failed");
         }
 
-        let response = self.send_request(method.clone(), url).await?;
-        if response.status() != StatusCode::UNAUTHORIZED || self.config.frigate_api_auth.is_none() {
-            return response.error_for_status().context("Frigate API request failed");
-        }
+        let Some(auth) = &self.config.frigate_api_auth else {
+            return response
+                .error_for_status()
+                .context("Frigate API request failed");
+        };
 
         tracing::debug!("Frigate API returned 401; logging in again and retrying request");
-        {
-            let mut logged_in = self.logged_in.lock().await;
-            *logged_in = false;
-        }
-        self.ensure_logged_in().await?;
+        self.login(auth).await?;
 
         self.send_request(method, url)
             .await?
@@ -196,26 +190,11 @@ impl FrigateApiClient {
             .context("Sending Frigate API request failed")
     }
 
-    async fn ensure_logged_in(&self) -> anyhow::Result<()> {
-        let Some(auth) = &self.config.frigate_api_auth else {
-            return Ok(());
-        };
-
-        let mut logged_in = self.logged_in.lock().await;
-        if *logged_in {
-            return Ok(());
-        }
-
-        tracing::debug!("Logging into Frigate API");
-        self.login(auth).await?;
-        *logged_in = true;
-        Ok(())
-    }
-
     async fn login(&self, auth: &FrigateApiAuthConfig) -> anyhow::Result<()> {
         let base_url = &self.config.frigate_api_base_url;
         let url = format!("{base_url}/api/login");
 
+        tracing::debug!("Logging into Frigate API");
         let response = self
             .client
             .post(&url)
@@ -263,12 +242,12 @@ fn is_valid_mp4(data: &[u8]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::{fixture, rstest};
     use std::sync::atomic::{AtomicUsize, Ordering};
     use tokio::{
         io::{AsyncReadExt, AsyncWriteExt},
         net::TcpListener,
     };
-    use rstest::{fixture, rstest};
 
     #[fixture]
     pub fn base_url() -> String {
@@ -389,7 +368,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_call_with_auth_logs_in_and_sends_cookie() {
+    async fn test_call_with_auth_logs_in_after_unauthorized_and_sends_cookie() {
         let login_count = Arc::new(AtomicUsize::new(0));
         let summary_count = Arc::new(AtomicUsize::new(0));
         let base_url = spawn_test_server({
@@ -406,53 +385,10 @@ mod tests {
 
                 if request.starts_with("GET /api/review/summary ") {
                     summary_count.fetch_add(1, Ordering::SeqCst);
-                    assert!(request
+                    if !request
                         .to_ascii_lowercase()
-                        .contains("cookie: frigate_token=token"));
-                    return json_response(r#"{"last24Hours":[]}"#);
-                }
-
-                response(404, "not found")
-            }
-        })
-        .await;
-
-        let config = FrigateApiConfig {
-            frigate_api_base_url: base_url,
-            frigate_api_proxy: None,
-            frigate_api_auth: Some(FrigateApiAuthConfig {
-                username: "snap-sync".to_string(),
-                password: "secret-password".to_string(),
-            }),
-            delay_after_startup: std::time::Duration::ZERO,
-        };
-        let frigate_client = make_frigate_client(config).unwrap();
-
-        frigate_client.test_call().await.unwrap();
-
-        assert_eq!(login_count.load(Ordering::SeqCst), 1);
-        assert_eq!(summary_count.load(Ordering::SeqCst), 1);
-    }
-
-    #[tokio::test]
-    async fn test_call_with_auth_retries_login_after_unauthorized_response() {
-        let login_count = Arc::new(AtomicUsize::new(0));
-        let summary_count = Arc::new(AtomicUsize::new(0));
-        let base_url = spawn_test_server({
-            let login_count = login_count.clone();
-            let summary_count = summary_count.clone();
-            move |request| {
-                if request.starts_with("POST /api/login ") {
-                    login_count.fetch_add(1, Ordering::SeqCst);
-                    return login_response();
-                }
-
-                if request.starts_with("GET /api/review/summary ") {
-                    let count = summary_count.fetch_add(1, Ordering::SeqCst);
-                    assert!(request
-                        .to_ascii_lowercase()
-                        .contains("cookie: frigate_token=token"));
-                    if count == 0 {
+                        .contains("cookie: frigate_token=token")
+                    {
                         return response(401, "unauthorized");
                     }
                     return json_response(r#"{"last24Hours":[]}"#);
@@ -476,8 +412,58 @@ mod tests {
 
         frigate_client.test_call().await.unwrap();
 
-        assert_eq!(login_count.load(Ordering::SeqCst), 2);
+        assert_eq!(login_count.load(Ordering::SeqCst), 1);
         assert_eq!(summary_count.load(Ordering::SeqCst), 2);
+    }
+
+    #[tokio::test]
+    async fn test_call_with_auth_retries_login_after_unauthorized_response() {
+        let login_count = Arc::new(AtomicUsize::new(0));
+        let summary_count = Arc::new(AtomicUsize::new(0));
+        let base_url = spawn_test_server({
+            let login_count = login_count.clone();
+            let summary_count = summary_count.clone();
+            move |request| {
+                if request.starts_with("POST /api/login ") {
+                    login_count.fetch_add(1, Ordering::SeqCst);
+                    return login_response();
+                }
+
+                if request.starts_with("GET /api/review/summary ") {
+                    let count = summary_count.fetch_add(1, Ordering::SeqCst);
+                    if !request
+                        .to_ascii_lowercase()
+                        .contains("cookie: frigate_token=token")
+                    {
+                        return response(401, "unauthorized");
+                    }
+                    if count == 2 {
+                        return response(401, "unauthorized");
+                    }
+                    return json_response(r#"{"last24Hours":[]}"#);
+                }
+
+                response(404, "not found")
+            }
+        })
+        .await;
+
+        let config = FrigateApiConfig {
+            frigate_api_base_url: base_url,
+            frigate_api_proxy: None,
+            frigate_api_auth: Some(FrigateApiAuthConfig {
+                username: "snap-sync".to_string(),
+                password: "secret-password".to_string(),
+            }),
+            delay_after_startup: std::time::Duration::ZERO,
+        };
+        let frigate_client = make_frigate_client(config).unwrap();
+
+        frigate_client.test_call().await.unwrap();
+        frigate_client.test_call().await.unwrap();
+
+        assert_eq!(login_count.load(Ordering::SeqCst), 2);
+        assert_eq!(summary_count.load(Ordering::SeqCst), 4);
     }
 
     async fn spawn_test_server<F>(handler: F) -> String
