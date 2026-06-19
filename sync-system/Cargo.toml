@@ -19,6 +19,7 @@ thiserror = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 tracing = { workspace = true }
 utils = { workspace = true }
+zeroize = { workspace = true, features = ["zeroize_derive"] }
 
 file-sender = { workspace = true }
 frigate-api-caller = { workspace = true }

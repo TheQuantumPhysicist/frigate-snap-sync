@@ -91,6 +91,7 @@ async fn basic_syncsystem_uploads(
     let frigate_api_config = FrigateApiConfig {
         frigate_api_base_url: "http://example.com".to_string(),
         frigate_api_proxy: None,
+        frigate_api_auth: None,
         delay_after_startup: std::time::Duration::ZERO,
     };
 
@@ -400,6 +401,7 @@ async fn basic_syncsystem_uploads_with_delay_test(
     let frigate_api_config = FrigateApiConfig {
         frigate_api_base_url: "http://example.com".to_string(),
         frigate_api_proxy: None,
+        frigate_api_auth: None,
         delay_after_startup,
     };
 

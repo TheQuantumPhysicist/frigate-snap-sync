@@ -34,6 +34,17 @@ upload_destinations:
 # The API address of Frigate. This is used to retrieve extra data, like video clips
 frigate_api_address: "http://127.0.0.1:5000"
 
+# Optional authentication for Frigate's API.
+# Omit this whole block if your Frigate API needs no login.
+# Provide a username and exactly one of `password` or `password_file`.
+#frigate_api_auth:
+#  username: my_frigate_user
+#  password: my_frigate_password
+# Reading the password from a file keeps the secret out of this config:
+#frigate_api_auth:
+#  username: my_frigate_user
+#  password_file: /run/secrets/frigate_password
+
 # How long to wait after Frigate startup to start uploads.
 # In other words: If Frigate restarts, uploads will only happen after the given period has passed.
 # This might be useful in case Frigate takes time after startup to register the desired snapshot/recordings state.

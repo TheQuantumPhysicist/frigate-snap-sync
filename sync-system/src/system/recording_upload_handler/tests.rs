@@ -78,6 +78,7 @@ async fn recordings_task_handler(random_seed: Seed) {
     let frigate_config = FrigateApiConfig {
         frigate_api_base_url: "http://someurl.com:5000/".to_string(),
         frigate_api_proxy: None,
+        frigate_api_auth: None,
         delay_after_startup: std::time::Duration::ZERO,
     };
 
@@ -235,6 +236,7 @@ async fn recordings_task_handler_shutdown(random_seed: Seed) {
     let frigate_config = FrigateApiConfig {
         frigate_api_base_url: "http://someurl.com:5000/".to_string(),
         frigate_api_proxy: None,
+        frigate_api_auth: None,
         delay_after_startup: std::time::Duration::ZERO,
     };
 
@@ -308,6 +310,7 @@ async fn recordings_task_handler_timeout_loses_task(random_seed: Seed) {
     let frigate_config = FrigateApiConfig {
         frigate_api_base_url: "http://someurl.com:5000/".to_string(),
         frigate_api_proxy: None,
+        frigate_api_auth: None,
         delay_after_startup: std::time::Duration::ZERO,
     };
 

@@ -64,7 +64,7 @@ serde_yml = "0.0"
 tap = "1.0"
 tempfile = "3.19"
 thiserror = "2.0"
-tokio = { version = "1.45", default-features = false }
+tokio = { version = "1.52", default-features = false }
 tracing-subscriber = "0.3"
 tracing = "0.1"
 reqwest = "0.13"
@@ -74,6 +74,7 @@ russh = "0.57"
 serial_test = "3.2"
 ssh2 = "0.9"
 vfs = "0.12"
+zeroize = "1.8"
 
 file-sender = { path = "file-sender" }
 frigate-api-caller = { path = "frigate-api-caller" }

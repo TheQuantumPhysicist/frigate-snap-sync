@@ -1,4 +1,7 @@
-use crate::{config::VideoSyncConfig, system::SyncSystem};
+use crate::{
+    config::{FrigateApiAuthSource, VideoSyncConfig},
+    system::SyncSystem,
+};
 use file_sender::{make_store, path_descriptor::PathDescriptor};
 use frigate_api_caller::{config::FrigateApiConfig, make_frigate_client};
 use logging::init_logging;
@@ -6,13 +9,24 @@ use mqtt_handler::config::MqttHandlerConfig;
 use options::run_options::start_options::StartOptions;
 use std::sync::Arc;
 
-impl From<&VideoSyncConfig> for FrigateApiConfig {
-    fn from(config: &VideoSyncConfig) -> Self {
-        Self {
+impl TryFrom<&VideoSyncConfig> for FrigateApiConfig {
+    type Error = anyhow::Error;
+
+    fn try_from(config: &VideoSyncConfig) -> Result<Self, Self::Error> {
+        // - The auth block was already validated into a legal source at parse time.
+        // - Resolve it here (may read a password file); resolution stays in the
+        //   orchestration layer, not in a config getter.
+        let frigate_api_auth = config
+            .frigate_api_auth()
+            .map(FrigateApiAuthSource::resolve)
+            .transpose()?;
+
+        Ok(Self {
             frigate_api_base_url: config.frigate_api_address().to_string(),
             frigate_api_proxy: config.frigate_api_proxy().map(str::to_string),
+            frigate_api_auth,
             delay_after_startup: config.delay_after_startup(),
-        }
+        })
     }
 }
 
@@ -63,7 +77,7 @@ pub async fn run(options: StartOptions) -> anyhow::Result<()> {
 
         let sync_sys = SyncSystem::new(
             config.upload_destinations().clone(),
-            Arc::new(FrigateApiConfig::from(&config)),
+            Arc::new(FrigateApiConfig::try_from(&config)?),
             frigate_api_maker,
             file_sender_maker,
             mqtt_data_receiver,
