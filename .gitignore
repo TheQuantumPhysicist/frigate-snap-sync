@@ -1,2 +1,6 @@
 /target
 config.yaml
+
+*.md
+!README.md
+!LICENSE.md
