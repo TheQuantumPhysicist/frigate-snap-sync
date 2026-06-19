@@ -11,7 +11,7 @@ use std::sync::Arc;
 use tokio::sync::oneshot;
 use utils::time_getter::TimeGetter;
 
-const DEFAULT_RETRY_PERIOD: std::time::Duration = std::time::Duration::from_secs(60);
+const DEFAULT_RETRY_PERIOD: std::time::Duration = std::time::Duration::from_mins(1);
 const DEFAULT_MAX_RETRY_ATTEMPTS: u32 = 60;
 const DEFAULT_UPLOAD_RETRY_SLEEP_ON_ERROR: std::time::Duration = std::time::Duration::from_secs(1);
 
