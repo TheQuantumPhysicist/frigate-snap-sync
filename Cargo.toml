@@ -45,7 +45,7 @@ aws-credential-types = "1.2"
 aws-smithy-types = "1.3"
 aws-sdk-s3 = { version = "1.124", default-features = true }
 bytes = "1.10"
-ctor = "0.6"
+ctor = "1.0"
 chrono = "0.4"
 clap = "4.5"
 ctrlc = "3.4"
@@ -53,7 +53,7 @@ futures = "0.3"
 humantime = "2.2"
 image = "0.25"
 ini = "1.3"
-itertools = "0.14"
+itertools = "0.15"
 libssh2-sys = "0.3"
 log = "0.4"
 mockall = "0.14"
@@ -64,16 +64,21 @@ serde_yml = "0.0"
 tap = "1.0"
 tempfile = "3.19"
 thiserror = "2.0"
-tokio = { version = "1.45", default-features = false }
+tokio = { version = "1.52", default-features = false }
 tracing-subscriber = "0.3"
 tracing = "0.1"
 reqwest = "0.13"
 rstest = "0.26"
 rumqttc = "0.25"
-russh = "0.57"
+# Default features pull `rsa`, which drags in a pre-release RustCrypto chain
+# (crypto-bigint / pkcs8 / der release-candidates) that does not build. The only
+# russh user is the file-sender tests, which just generate an Ed25519 key, so the
+# `rsa` feature is dropped here.
+russh = { version = "0.57", default-features = false, features = ["flate2", "aws-lc-rs"] }
 serial_test = "3.2"
 ssh2 = "0.9"
-vfs = "0.12"
+vfs = "0.13"
+zeroize = "1.8"
 
 file-sender = { path = "file-sender" }
 frigate-api-caller = { path = "frigate-api-caller" }
