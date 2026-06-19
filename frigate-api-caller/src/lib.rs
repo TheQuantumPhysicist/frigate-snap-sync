@@ -176,10 +176,114 @@ fn is_valid_mp4(data: &[u8]) -> bool {
 mod tests {
     use super::*;
     use rstest::{fixture, rstest};
+    use test_utils::random::{Seed, gen_random_bytes, make_seedable_rng, random_seed};
 
     #[fixture]
     pub fn base_url() -> String {
         "http://127.0.0.1:5000".to_string()
+    }
+
+    #[test]
+    fn is_valid_mp4_fixed_cases() {
+        // Empty body (a not-ready / zero-byte clip) must be rejected.
+        assert!(!is_valid_mp4(b""));
+        // "ftyp" present but shorter than the 12-byte minimum.
+        assert!(!is_valid_mp4(b"\x00\x00\x00\x00ftyp"));
+        assert!(!is_valid_mp4(b"\x00\x00\x00\x00ftyp123"));
+        // Long enough but the wrong box type at bytes 4..8.
+        assert!(!is_valid_mp4(b"\x00\x00\x00\x18moovisom\x00\x00\x00\x00"));
+        // A minimal valid ftyp header.
+        assert!(is_valid_mp4(b"\x00\x00\x00\x18ftypisom\x00\x00\x00\x00"));
+    }
+
+    #[rstest]
+    #[trace]
+    fn is_valid_mp4_randomized(random_seed: Seed) {
+        let mut rng = make_seedable_rng(random_seed);
+
+        // 4 leading bytes, the "ftyp" marker at bytes 4..8, then a non-empty tail:
+        // length exceeds 11 and the marker matches, so it is accepted.
+        let mut valid = gen_random_bytes(&mut rng, 4..5);
+        valid.extend_from_slice(b"ftyp");
+        valid.extend_from_slice(&gen_random_bytes(&mut rng, 4..64));
+        assert!(is_valid_mp4(&valid));
+
+        // Same length class but a different box type at bytes 4..8: rejected.
+        let mut wrong_marker = gen_random_bytes(&mut rng, 4..5);
+        wrong_marker.extend_from_slice(b"moov");
+        wrong_marker.extend_from_slice(&gen_random_bytes(&mut rng, 0..64));
+        assert!(!is_valid_mp4(&wrong_marker));
+
+        // Anything 11 bytes or shorter is rejected regardless of contents.
+        let too_short = gen_random_bytes(&mut rng, 0..12);
+        assert!(!is_valid_mp4(&too_short));
+    }
+
+    #[test]
+    fn deserialize_representative_stats() {
+        // Mirrors the shape of Frigate's /api/stats response for the fields we model.
+        let json = r#"{
+            "cameras": {
+                "front_door": {
+                    "camera_fps": 5.0,
+                    "process_fps": 5.0,
+                    "skipped_fps": 0.0,
+                    "detection_fps": 0.1,
+                    "detection_enabled": true
+                }
+            },
+            "detectors": { "cpu1": { "inference_speed": 8.5, "detection_start": 0.0 } },
+            "detection_fps": 0.1,
+            "service": { "uptime": 123456, "version": "0.14.1", "last_updated": 1700000000 },
+            "processes": { "go2rtc": { "pid": 42 } }
+        }"#;
+
+        let stats: Stats =
+            serde_json::from_str(json).expect("representative stats must deserialize");
+
+        assert_eq!(
+            stats.uptime_duration(),
+            std::time::Duration::from_secs(123_456)
+        );
+        assert_eq!(
+            StatsProps::uptime(&stats),
+            std::time::Duration::from_secs(123_456)
+        );
+    }
+
+    #[test]
+    fn deserialize_representative_review() {
+        // Mirrors the shape of Frigate's /api/review/{id} response.
+        let json = r#"{
+            "id": "1700000000.123-abcde",
+            "camera": "front_door",
+            "start_time": 1700000000.5,
+            "end_time": 1700000010.5,
+            "has_been_reviewed": false,
+            "severity": "alert",
+            "thumb_path": "/media/frigate/clips/review/thumb.webp",
+            "data": {
+                "detections": ["1700000000.123-abcde"],
+                "objects": ["person"],
+                "sub_labels": [],
+                "zones": ["yard"],
+                "audio": []
+            }
+        }"#;
+
+        let review: Review =
+            serde_json::from_str(json).expect("representative review must deserialize");
+
+        assert_eq!(review.id, "1700000000.123-abcde");
+        assert_eq!(review.camera, "front_door");
+        // Exact float comparison via bit pattern to avoid a lint-flagged `==` on floats.
+        assert_eq!(review.start_time.to_bits(), 1_700_000_000.5_f64.to_bits());
+        assert_eq!(
+            review.end_time.map(f64::to_bits),
+            Some(1_700_000_010.5_f64.to_bits())
+        );
+        assert_eq!(review.data.objects, vec!["person".to_string()]);
+        assert!(!review.has_been_reviewed);
     }
 
     #[tokio::test]

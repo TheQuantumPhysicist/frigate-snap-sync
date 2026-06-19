@@ -19,13 +19,12 @@ use super::SftpError;
 // attempt is abandoned.
 const TCP_CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
 
-// Upper bound on every blocking libssh2 call on the session: the handshake,
-// the public-key auth, and all later SFTP operations.
-// Without it libssh2 waits forever, so a server that accepts the TCP
-// connection but then stalls (for example one whose SSH daemon is still
-// starting and has not sent its banner) wedges the calling task indefinitely.
-// A bounded failure surfaces as an error the daemon's retry loop can recover
-// from.
+// - Upper bound on every blocking libssh2 call on the session.
+// - Covers the handshake, the public-key auth, and all later SFTP operations.
+// - Without it libssh2 waits forever: a server that accepts the TCP connection
+//   then stalls (for example its SSH daemon is still starting and has not sent
+//   its banner) wedges the calling task indefinitely.
+// - A bounded failure surfaces as an error the daemon's retry loop can recover from.
 const SSH_OPERATION_TIMEOUT: Duration = Duration::from_secs(45);
 
 pub struct BlockingSftpImpl {
@@ -329,11 +328,10 @@ impl BlockingSftpImpl {
     }
 }
 
-// Opens a TCP connection to `host`, performs the SSH handshake, and returns
-// the authenticated-ready session. Both timeouts are passed explicitly so the
-// behavior can be exercised in isolation: `connect_timeout` bounds the TCP
-// connect, `operation_timeout` bounds the handshake and every later blocking
-// call on the returned session.
+// - Opens a TCP connection to the host, performs the SSH handshake, returns the session.
+// - Both timeouts are passed explicitly so the behavior can be tested in isolation.
+// - connect_timeout bounds the TCP connect.
+// - operation_timeout bounds the handshake and every later blocking call on the session.
 fn connect_session(
     host: &str,
     connect_timeout: Duration,
@@ -356,10 +354,10 @@ fn connect_session(
         .map_err(SftpError::TcpConnectionFailed)?;
     session.set_tcp_stream(tcp);
 
-    // libssh2 takes the timeout in milliseconds as a u32. The source is a
-    // u128 count of whole milliseconds that is always non-negative, and the
-    // production constant fits comfortably; a caller passing more than ~49
-    // days saturates to the longest representable timeout, a safe degradation.
+    // - libssh2 takes the timeout in milliseconds as a u32.
+    // - The source is a u128 millisecond count, always non-negative.
+    // - The production constant fits comfortably in u32.
+    // - A caller passing more than ~49 days saturates to the longest timeout, a safe degradation.
     let operation_timeout_ms = u32::try_from(operation_timeout.as_millis()).unwrap_or(u32::MAX);
     session.set_timeout(operation_timeout_ms);
 
@@ -472,21 +470,21 @@ mod tests {
     use std::net::TcpListener;
     use std::time::Instant;
 
-    // A server that accepts the TCP connection but never speaks the SSH
-    // protocol reproduces the hang that wedged the SFTP store: the handshake
-    // waits for a banner that never arrives. With the session timeout in
-    // place the attempt must return an error within a bound instead of
-    // blocking forever. Without the timeout this test would hang.
+    // - A fake server accepts the TCP connection but never speaks the SSH protocol.
+    // - This reproduces the hang that wedged the SFTP store: the handshake waits
+    //   for a banner that never arrives.
+    // - With the session timeout, the attempt must return an error within a bound.
+    // - Without the timeout this test would hang forever.
     #[test]
     fn connect_session_does_not_hang_on_a_stalled_server() {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let address = listener.local_addr().unwrap();
 
         let accept_thread = std::thread::spawn(move || {
-            // Accept the connection and keep it open while sending nothing, so
-            // the client blocks waiting for an SSH banner that never comes.
-            // Draining without ever replying holds the socket open until the
-            // client times out and drops it, at which point the read returns 0.
+            // - Accept the connection and keep it open while sending nothing.
+            // - The client blocks waiting for an SSH banner that never comes.
+            // - Draining without replying holds the socket open until the client gives up.
+            // - When the client drops its socket, this read returns 0 and the thread exits.
             if let Ok((mut stream, _)) = listener.accept() {
                 let mut buffer = [0u8; 64];
                 while matches!(stream.read(&mut buffer), Ok(size) if size > 0) {}
@@ -506,9 +504,9 @@ mod tests {
             result.is_err(),
             "handshake against a stalled server must fail, not succeed"
         );
-        // The handshake must wait for roughly the operation timeout, proving it
-        // is the timeout that breaks the stall rather than an unrelated early
-        // error, yet still return in a bounded time rather than hanging.
+        // - The handshake must wait roughly the operation timeout before failing.
+        // - That proves the timeout breaks the stall, not some unrelated early error.
+        // - It must still return within a bound rather than hanging.
         assert!(
             elapsed >= operation_timeout / 2,
             "handshake returned before the timeout could fire; took {elapsed:?}"

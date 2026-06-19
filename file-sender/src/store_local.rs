@@ -94,7 +94,7 @@ impl StoreDestination for LocalStore {
     async fn get_to_memory(&self, from: &Path) -> Result<Vec<u8>, Self::Error> {
         let from_path = self.resolve(&from);
         tracing::debug!("Calling 'get_to_memory' on path: `{}`", from_path.display());
-        let result = std::fs::read(from_path)?;
+        let result = fs::read(from_path).await?;
         Ok(result)
     }
 

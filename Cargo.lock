@@ -1742,6 +1742,7 @@ dependencies = [
  "rstest",
  "serde",
  "serde_json",
+ "test-utils",
  "tokio",
  "tracing",
 ]

@@ -178,12 +178,11 @@ async fn sftp_filesystem(
         identity: crate::path_descriptor::StringFileData::InMemory(priv_key_openssh_format_str),
     });
 
-    // The container's SSH server takes an unpredictable amount of time to
-    // generate host keys and start listening. A fixed sleep races that
-    // startup and intermittently connects to a half-ready server. Retry
-    // building and initializing the store until it succeeds or a generous
-    // deadline passes; each failed attempt now returns quickly because the
-    // store bounds its connection with a timeout.
+    // - The container's SSH server takes an unpredictable time to generate host
+    //   keys and start listening.
+    // - A fixed sleep races that startup and intermittently hits a half-ready server.
+    // - So retry building and initializing the store until it succeeds or a deadline passes.
+    // - Each failed attempt returns quickly now because the store bounds its connection.
     let fs = connect_with_retry(&descriptor).await;
 
     test_store(fs.as_ref(), &mut rng).await;

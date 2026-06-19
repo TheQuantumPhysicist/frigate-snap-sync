@@ -142,13 +142,24 @@ where
 
         tracing::info!("Reached the end of {STRUCT_NAME} event loop. Unwinding all task managers.");
 
-        self.rec_updates_sender
+        // - A failed send means the handler task already finished and dropped its receiver.
+        // - That is a benign shutdown race, not an invariant violation.
+        // - So log it and fall through to joining rather than aborting the process.
+        if self
+            .rec_updates_sender
             .send(RecordingsUploadTaskHandlerCommand::Stop)
-            .expect("Sending stop signal for recordings handler failed");
+            .is_err()
+        {
+            tracing::error!("Recordings handler already stopped before its stop signal was sent.");
+        }
 
-        self.snapshots_updates_sender
+        if self
+            .snapshots_updates_sender
             .send(SnapshotsUploadTaskHandlerCommand::Stop)
-            .expect("Sending stop signal for snapshots handler failed");
+            .is_err()
+        {
+            tracing::error!("Snapshots handler already stopped before its stop signal was sent.");
+        }
 
         for (task_name, join_handle) in &mut self.join_handles {
             match join_handle.await {

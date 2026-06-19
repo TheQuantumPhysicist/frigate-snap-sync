@@ -85,7 +85,10 @@ async fn launch_eventloop(
                             &publish.payload,
                         ) {
                             tracing::debug!("Found relevant data from topic: `{}`", publish.topic);
-                            data_sender.send(data).expect("Sending data message failed");
+                            match forward_captured_payload(&data_sender, data) {
+                                EventLoopFlow::Continue => {}
+                                EventLoopFlow::Stop => break,
+                            }
                         } else {
                             tracing::debug!("Ignoring data with topic: `{}`", publish.topic);
                         }
@@ -181,3 +184,32 @@ impl TryFrom<&MqttHandlerConfig> for MqttOptions {
         Ok(mqtt_options)
     }
 }
+
+// Whether the MQTT event loop should keep running after handling one payload.
+#[derive(Debug, PartialEq, Eq)]
+enum EventLoopFlow {
+    Continue,
+    Stop,
+}
+
+// - Hands a parsed payload to the consuming system over the channel.
+// - The receiver is dropped only when that system has shut down.
+// - So a failed send is a normal shutdown race, not a fault.
+// - It signals the loop to stop instead of aborting the whole process.
+fn forward_captured_payload(
+    data_sender: &UnboundedSender<CapturedPayloads>,
+    data: CapturedPayloads,
+) -> EventLoopFlow {
+    match data_sender.send(data) {
+        Ok(()) => EventLoopFlow::Continue,
+        Err(_receiver_gone) => {
+            tracing::debug!(
+                "MQTT payload receiver is gone (shutdown in progress); stopping the event loop."
+            );
+            EventLoopFlow::Stop
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests;
