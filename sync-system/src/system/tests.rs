@@ -13,7 +13,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{Arc, atomic::AtomicU64},
 };
-use test_utils::{assert_slice_contains, random::Rng};
+use test_utils::{assert_slice_contains, random::RngExt};
 use test_utils::{
     random::{Seed, gen_random_bytes, gen_random_string, make_seedable_rng, random_seed},
     {assert_str_contains, assert_str_starts_with},

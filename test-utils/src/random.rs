@@ -1,5 +1,8 @@
-use rand_chacha::{ChaChaRng, rand_core::RngCore};
-pub use randomness::{self, CryptoRng, Rng, SeedableRng, seq::IteratorRandom};
+use rand_chacha::ChaChaRng;
+pub use randomness::{
+    self, CryptoRng, Infallible, Rng, RngExt, SeedableRng, TryCryptoRng, TryRng,
+    seq::IteratorRandom,
+};
 use rstest::fixture;
 use std::{num::ParseIntError, ops::RangeBounds, str::FromStr};
 
@@ -79,7 +82,7 @@ impl TestRng {
     }
 
     #[must_use]
-    pub fn random(rng: &mut (impl Rng + CryptoRng)) -> Self {
+    pub fn random(rng: &mut impl CryptoRng) -> Self {
         Self::new(Seed(rng.next_u64()))
     }
     #[must_use]
@@ -88,24 +91,29 @@ impl TestRng {
     }
 }
 
-impl RngCore for TestRng {
-    fn next_u32(&mut self) -> u32 {
-        self.0.next_u32()
+// - rand 0.10 builds Rng/CryptoRng from TryRng/TryCryptoRng via blanket impls.
+// - The inner ChaChaRng is infallible, so the deterministic TestRng is infallible too.
+// - Implementing the fallible base traits gives TestRng the full Rng + CryptoRng surface.
+impl TryRng for TestRng {
+    type Error = Infallible;
+
+    fn try_next_u32(&mut self) -> Result<u32, Self::Error> {
+        self.0.try_next_u32()
     }
 
-    fn next_u64(&mut self) -> u64 {
-        self.0.next_u64()
+    fn try_next_u64(&mut self) -> Result<u64, Self::Error> {
+        self.0.try_next_u64()
     }
 
-    fn fill_bytes(&mut self, dest: &mut [u8]) {
-        self.0.fill_bytes(dest);
+    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), Self::Error> {
+        self.0.try_fill_bytes(dest)
     }
 }
 
-impl CryptoRng for TestRng {}
+impl TryCryptoRng for TestRng {}
 
 #[must_use]
-pub fn make_seedable_rng(seed: Seed) -> impl Rng + CryptoRng {
+pub fn make_seedable_rng(seed: Seed) -> impl CryptoRng {
     TestRng::new(seed)
 }
 

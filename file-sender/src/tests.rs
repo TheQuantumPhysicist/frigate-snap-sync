@@ -216,8 +216,10 @@ async fn connect_with_retry(
 }
 
 fn gen_ssh_private_key() -> anyhow::Result<russh::keys::PrivateKey> {
+    // - russh wants an infallible CryptoRng for key generation.
+    // - make_os_rng routes that through the only sanctioned randomness source.
     let key = russh::keys::PrivateKey::random(
-        &mut rand_core::OsRng,
+        &mut randomness::make_os_rng(),
         russh::keys::ssh_key::Algorithm::Ed25519,
     )?;
     Ok(key)

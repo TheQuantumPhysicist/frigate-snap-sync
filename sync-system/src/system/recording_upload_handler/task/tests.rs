@@ -13,7 +13,7 @@ use std::{
 };
 use test_utils::{
     assert_str_ends_with,
-    random::{Rng, Seed, gen_random_bytes, make_seedable_rng, random_seed},
+    random::{RngExt, Seed, gen_random_bytes, make_seedable_rng, random_seed},
 };
 use utils::time::Time;
 

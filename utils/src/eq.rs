@@ -36,7 +36,7 @@ impl SliceEqualityCheckMethod {
 pub mod test {
     use rstest::rstest;
 
-    use randomness::Rng;
+    use randomness::RngExt;
     use test_utils::random::{Seed, make_seedable_rng};
 
     use super::*;

@@ -29,9 +29,8 @@ futures = { workspace = true }
 ini = { workspace = true }
 
 [dev-dependencies]
+randomness = { workspace = true }
 rstest = { workspace = true }
 russh = { workspace = true }
 tempfile = { workspace = true }
 test-utils = { workspace = true }
-
-rand_core = "0.6" # This is needed because russh uses an old version

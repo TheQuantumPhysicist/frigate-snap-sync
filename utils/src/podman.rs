@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use randomness::{Rng, make_true_rng};
+use randomness::{RngExt, make_true_rng};
 
 fn random_string(length: usize) -> String {
     make_true_rng()
