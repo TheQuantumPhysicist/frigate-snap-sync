@@ -171,23 +171,49 @@ async fn sftp_filesystem(
 
     let ssh_port = podman.get_port_mapping(2222).unwrap();
 
-    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-
-    let fs = make_store(&Arc::new(PathDescriptor::Sftp {
+    let descriptor = Arc::new(PathDescriptor::Sftp {
         username: username.to_string(),
         remote_address: format!("127.0.0.1:{ssh_port}"),
         remote_path: base_remote_path,
         identity: crate::path_descriptor::StringFileData::InMemory(priv_key_openssh_format_str),
-    }))
-    .unwrap();
+    });
 
-    fs.init().await.unwrap();
-
-    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+    // The container's SSH server takes an unpredictable amount of time to
+    // generate host keys and start listening. A fixed sleep races that
+    // startup and intermittently connects to a half-ready server. Retry
+    // building and initializing the store until it succeeds or a generous
+    // deadline passes; each failed attempt now returns quickly because the
+    // store bounds its connection with a timeout.
+    let fs = connect_with_retry(&descriptor).await;
 
     test_store(fs.as_ref(), &mut rng).await;
 
     println!("End of test for sftp filesystem reached.");
+}
+
+async fn connect_with_retry(
+    descriptor: &Arc<PathDescriptor>,
+) -> Arc<dyn StoreDestination<Error = anyhow::Error>> {
+    const MAX_ATTEMPTS: u32 = 30;
+    const RETRY_INTERVAL: std::time::Duration = std::time::Duration::from_secs(2);
+
+    let mut last_error = String::new();
+    for attempt in 1..=MAX_ATTEMPTS {
+        match make_store(descriptor) {
+            Ok(fs) => match fs.init().await {
+                Ok(()) => return fs,
+                Err(e) => last_error = format!("init failed: {e}"),
+            },
+            Err(e) => last_error = format!("store creation failed: {e}"),
+        }
+
+        eprintln!("SFTP server not ready (attempt {attempt}/{MAX_ATTEMPTS}): {last_error}");
+        tokio::time::sleep(RETRY_INTERVAL).await;
+    }
+
+    panic!(
+        "SFTP server never became ready after {MAX_ATTEMPTS} attempts. Last error: {last_error}"
+    );
 }
 
 fn gen_ssh_private_key() -> anyhow::Result<russh::keys::PrivateKey> {

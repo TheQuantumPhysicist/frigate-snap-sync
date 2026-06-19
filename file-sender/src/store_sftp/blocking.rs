@@ -6,13 +6,27 @@ use async_trait::async_trait;
 use ssh2::{self, ErrorCode, OpenFlags, Session};
 use std::{
     io::{BufRead, BufReader, Read},
-    net::TcpStream,
+    net::{TcpStream, ToSocketAddrs},
     path::{Path, PathBuf},
     sync::Arc,
+    time::Duration,
 };
 use tracing::trace_span;
 
 use super::SftpError;
+
+// Upper bound on how long the initial TCP connection may block before the
+// attempt is abandoned.
+const TCP_CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
+
+// Upper bound on every blocking libssh2 call on the session: the handshake,
+// the public-key auth, and all later SFTP operations.
+// Without it libssh2 waits forever, so a server that accepts the TCP
+// connection but then stalls (for example one whose SSH daemon is still
+// starting and has not sent its banner) wedges the calling task indefinitely.
+// A bounded failure surfaces as an error the daemon's retry loop can recover
+// from.
+const SSH_OPERATION_TIMEOUT: Duration = Duration::from_secs(45);
 
 pub struct BlockingSftpImpl {
     path_descriptor: Arc<PathDescriptor>,
@@ -23,7 +37,6 @@ pub struct BlockingSftpImpl {
 }
 
 impl BlockingSftpImpl {
-    #[allow(clippy::unused_async)]
     pub fn new_with_public_key(
         path_descriptor: Arc<PathDescriptor>,
         host: &str,
@@ -31,11 +44,7 @@ impl BlockingSftpImpl {
         priv_key: StringFileData,
         base_remote_path: impl Into<PathBuf>,
     ) -> Result<Self, SftpError> {
-        let mut session = Session::new().map_err(SftpError::SessionInitError)?;
-
-        let tcp = TcpStream::connect(host).map_err(SftpError::TcpConnectionFailed)?;
-        session.set_tcp_stream(tcp);
-        session.handshake().map_err(SftpError::HandshakeFailed)?;
+        let session = connect_session(host, TCP_CONNECT_TIMEOUT, SSH_OPERATION_TIMEOUT)?;
 
         let priv_key = priv_key.into_file_data()?;
 
@@ -320,6 +329,45 @@ impl BlockingSftpImpl {
     }
 }
 
+// Opens a TCP connection to `host`, performs the SSH handshake, and returns
+// the authenticated-ready session. Both timeouts are passed explicitly so the
+// behavior can be exercised in isolation: `connect_timeout` bounds the TCP
+// connect, `operation_timeout` bounds the handshake and every later blocking
+// call on the returned session.
+fn connect_session(
+    host: &str,
+    connect_timeout: Duration,
+    operation_timeout: Duration,
+) -> Result<Session, SftpError> {
+    let mut session = Session::new().map_err(SftpError::SessionInitError)?;
+
+    let address = host
+        .to_socket_addrs()
+        .map_err(SftpError::TcpConnectionFailed)?
+        .next()
+        .ok_or_else(|| {
+            SftpError::TcpConnectionFailed(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("No socket address resolved for host `{host}`"),
+            ))
+        })?;
+
+    let tcp = TcpStream::connect_timeout(&address, connect_timeout)
+        .map_err(SftpError::TcpConnectionFailed)?;
+    session.set_tcp_stream(tcp);
+
+    // libssh2 takes the timeout in milliseconds as a u32. The source is a
+    // u128 count of whole milliseconds that is always non-negative, and the
+    // production constant fits comfortably; a caller passing more than ~49
+    // days saturates to the longest representable timeout, a safe degradation.
+    let operation_timeout_ms = u32::try_from(operation_timeout.as_millis()).unwrap_or(u32::MAX);
+    session.set_timeout(operation_timeout_ms);
+
+    session.handshake().map_err(SftpError::HandshakeFailed)?;
+
+    Ok(session)
+}
+
 fn get_all_parents_for_mkdir_p<P: AsRef<Path>>(path: P) -> Vec<PathBuf> {
     let mut result = Vec::new();
     let mut path = path.as_ref().to_owned();
@@ -420,6 +468,58 @@ impl StoreDestination for BlockingSftpImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Read;
+    use std::net::TcpListener;
+    use std::time::Instant;
+
+    // A server that accepts the TCP connection but never speaks the SSH
+    // protocol reproduces the hang that wedged the SFTP store: the handshake
+    // waits for a banner that never arrives. With the session timeout in
+    // place the attempt must return an error within a bound instead of
+    // blocking forever. Without the timeout this test would hang.
+    #[test]
+    fn connect_session_does_not_hang_on_a_stalled_server() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+
+        let accept_thread = std::thread::spawn(move || {
+            // Accept the connection and keep it open while sending nothing, so
+            // the client blocks waiting for an SSH banner that never comes.
+            // Draining without ever replying holds the socket open until the
+            // client times out and drops it, at which point the read returns 0.
+            if let Ok((mut stream, _)) = listener.accept() {
+                let mut buffer = [0u8; 64];
+                while matches!(stream.read(&mut buffer), Ok(size) if size > 0) {}
+            }
+        });
+
+        let operation_timeout = Duration::from_secs(1);
+        let started = Instant::now();
+        let result = connect_session(
+            &address.to_string(),
+            Duration::from_secs(5),
+            operation_timeout,
+        );
+        let elapsed = started.elapsed();
+
+        assert!(
+            result.is_err(),
+            "handshake against a stalled server must fail, not succeed"
+        );
+        // The handshake must wait for roughly the operation timeout, proving it
+        // is the timeout that breaks the stall rather than an unrelated early
+        // error, yet still return in a bounded time rather than hanging.
+        assert!(
+            elapsed >= operation_timeout / 2,
+            "handshake returned before the timeout could fire; took {elapsed:?}"
+        );
+        assert!(
+            elapsed < operation_timeout * 10,
+            "connect must return within a bound on a stalled server; took {elapsed:?}"
+        );
+
+        accept_thread.join().unwrap();
+    }
 
     #[test]
     fn test_simplify_virtual_path() {
