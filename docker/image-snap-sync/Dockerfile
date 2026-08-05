@@ -1,5 +1,25 @@
-FROM debian:12-slim
-ENV DEBIAN_FRONTEND=noninteractive
+# We use a separate build container so we don't install all build dependencies
+# in the final image
+FROM rust:slim-bookworm AS builder
+ARG VERSION
+
+RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
+    apt-get full-upgrade -y && \
+    apt-get install -y git build-essential cmake pkg-config libssl-dev && \
+    apt-get clean && \
+    rm -fR /var/lib/apt/lists
+
+RUN git clone https://github.com/TheQuantumPhysicist/frigate-snap-sync /tmp/build
+
+WORKDIR /tmp/build
+
+# If a version was specified we checkout the matching tag
+RUN if [[ -n "${VERSION}" ]] ; then git checkout "v${VERSION}" ; fi
+
+RUN cargo build --release --all --locked
+
+# This will be the final image that will be published
+FROM debian:bookworm-slim
 
 ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
@@ -8,42 +28,23 @@ ENV LC_ALL=en_US.UTF-8
 ENV LANGUAGE=en_US.UTF-8
 
 RUN echo "LC_ALL=en_US.UTF-8" >> /etc/environment
-RUN apt-get update
-RUN apt-get upgrade -y
-RUN apt-get install -y curl tmux nano net-tools procps htop git build-essential cmake pkg-config libssl-dev gosu
 
-COPY entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/entrypoint.sh
+# Only install runtime dependencies here
+RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
+    apt-get full-upgrade -y && \
+    apt-get install -y libssl3 && \
+    apt-get clean && \
+    rm -fR /var/lib/apt/lists
 
-RUN groupadd --gid 10246                runner
-RUN useradd  --gid 10246 --uid 10246 -m runner
-RUN passwd -l runner
+# The matching group will be automatically created
+RUN useradd --uid 10246 -m runner
 
 USER runner
 
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-RUN cd /home/runner/
-WORKDIR /home/runner/
-
-ENV PATH="/home/runner/.cargo/bin:$PATH"
-RUN echo "export /home/runner/.cargo/bin:$PATH" > /home/runner/.bashrc
-
-RUN git clone https://github.com/TheQuantumPhysicist/frigate-snap-sync
-RUN cd /home/runner/frigate-snap-sync/
-WORKDIR /home/runner/frigate-snap-sync/
-RUN (cargo update && cargo build --release --all) || (git checkout Cargo.lock && cargo build --release --all --locked)
-
 RUN mkdir /home/runner/app/
-RUN cp /home/runner/frigate-snap-sync/target/release/snap-sync /home/runner/app/
-RUN cd /home/runner/app/
+COPY --from=builder /tmp/build/target/release/snap-sync /home/runner/app/snap-sync
+
 WORKDIR /home/runner/app/
 
-# Clean up the source and build dirs
-RUN rm -rf /home/runner/frigate-snap-sync/
-RUN rm -rf /home/runner/.rustup/
-RUN rm -rf /home/runner/.cargo/
-
-USER root
-
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-CMD /home/runner/app/snap-sync start -c /config.yaml
+ENTRYPOINT ["/home/runner/app/snap-sync"]
+CMD ["start",  "-c",  "/config.yaml" ]
