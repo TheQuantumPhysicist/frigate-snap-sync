@@ -1,7 +1,7 @@
 
 [package]
 name = "snap-sync"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2024"
 
 [workspace]
@@ -34,7 +34,7 @@ test-utils = { workspace = true }
 [workspace.package]
 edition = "2024"
 rust-version = "1.92"
-version = "0.3.0"
+version = "0.3.1"
 license = "MIT"
 
 [workspace.dependencies]
