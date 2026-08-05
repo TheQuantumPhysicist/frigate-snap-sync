@@ -6,6 +6,7 @@
         "buildx",
         "codecheck",
         "creds",
+        "flate",
         "ftyp",
         "gosu",
         "LC_CTYPE",
